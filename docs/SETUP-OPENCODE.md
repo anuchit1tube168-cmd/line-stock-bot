@@ -136,8 +136,10 @@ AI จะบอกให้คุณมาทำขั้นนี้ ที่ 
 
 ### 8.1 สร้าง Provider
 
-1. กด **Create a new provider**
+1. เลื่อนลงหาหัวข้อ **Providers** แล้วกดปุ่มเขียว **Create**
 2. ตั้งชื่อ (ชื่อบริษัท/ทีม/อะไรก็ได้) → **Create**
+
+![กดปุ่ม Create ใต้หัวข้อ Providers](images/line/01-create-provider.png)
 
 ### 8.2 สร้างช่องของบอท
 
@@ -150,18 +152,35 @@ AI จะบอกให้คุณมาทำขั้นนี้ ที่ 
 
 ### 8.3 เก็บค่าที่ 1 — Channel secret
 
-แท็บ **Basic settings** → เลื่อนลงหา **Channel secret** → กดคัดลอก
+แท็บ **Basic settings** → เลื่อนลงเกือบสุดหน้า จะเจอ **Channel secret** → กดไอคอนคัดลอกด้านขวา
+
+![ตำแหน่ง Channel secret ในแท็บ Basic settings](images/line/02-channel-secret.png)
+
+> ค่าในภาพถูกปิดไว้ ของคุณจะเป็นตัวอักษรกับตัวเลข 32 ตัว
+> **อย่าเผยแพร่ค่านี้ให้ใครเห็น**
 
 ### 8.4 เก็บค่าที่ 2 — Channel access token
 
-แท็บ **Messaging API** → เลื่อนลงหา **Channel access token (long-lived)** → กด **Issue** → คัดลอก
+แท็บ **Messaging API** → เลื่อนลงล่างสุด จะเจอหัวข้อ **Channel access token**
+→ ถ้ายังว่างอยู่ให้กด **Issue** ก่อน → แล้วกดไอคอนคัดลอกด้านขวา
+
+![ตำแหน่ง Channel access token ในแท็บ Messaging API](images/line/03-access-token.png)
+
+> สังเกตว่าในภาพ **Auto-reply messages** และ **Greeting messages** ขึ้นว่า `Disabled` แล้ว
+> ถ้าของคุณยังขึ้น `Enabled` ให้ไปทำข้อ 8.5 ต่อ
 
 ### 8.5 ปิดข้อความอัตโนมัติ ⚠️ สำคัญ
 
-**ยังอยู่แท็บ Messaging API** เลื่อนหา 2 หัวข้อนี้ แล้วกด **Edit** ทีละอัน (จะเด้งไปหน้า LINE Official Account Manager)
+**ยังอยู่แท็บ Messaging API** เลื่อนหาหัวข้อ **LINE Official Account features**
+แล้วกด **Edit** ที่ **Auto-reply messages** — จะเด้งไปหน้า **LINE Official Account Manager**
 
-- **Auto-reply messages** → ปิด (Disabled)
-- **Greeting messages** → ปิด (Disabled)
+ที่หน้านั้น เมนูซ้าย **Settings → Response settings** แล้วปิดสวิตช์ 2 อันนี้ให้เป็นสีเทา
+
+![ปิด Greeting message และ Auto-response messages](images/line/04-response-settings.png)
+
+- **Greeting message** → ปิด
+- **Auto-response messages** → ปิด
+- **Webhooks** → **เปิดไว้** (สีเขียว) ← อันนี้ห้ามปิด
 
 > ถ้าไม่ปิด บอทจะตอบข้อความสำเร็จรูปของ LINE ซ้อนกับคำตอบจริงทุกครั้ง กวนมาก
 
@@ -210,7 +229,9 @@ https://line-stock.xxxxx.workers.dev
 
 ### 10.3 สร้าง LIFF app
 
-แท็บ **LIFF** → **Add**
+แท็บ **LIFF** → กดปุ่มเขียว **Add**
+
+![แท็บ LIFF และปุ่ม Add](images/line/05-liff-add.png)
 
 | ช่อง | ใส่อะไร |
 |---|---|
