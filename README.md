@@ -43,7 +43,8 @@
 AI จะพาคุณไล่ทีละขั้นจนระบบใช้งานได้จริง เพราะโปรเจกต์นี้มีไฟล์ [`AGENTS.md`](AGENTS.md)
 ที่เขียนบอกวิธีติดตั้งทั้งหมดไว้ให้ AI อ่านแล้ว (ใช้กับ Cursor, Claude Code, Codex, Windsurf ได้เหมือนกัน)
 
-👉 **รายละเอียดทีละขั้นพร้อมสิ่งที่ต้องไปกดเองบนเว็บ LINE: [คู่มือติดตั้งด้วย AI](docs/SETUP-AI.md)**
+👉 **อยากได้แบบละเอียดทีละคลิก ตั้งแต่สมัครบัญชีจนบอทตอบได้:
+[คู่มือติดตั้งทีละขั้นด้วย OpenCode](docs/SETUP-OPENCODE.md)**
 
 ---
 
@@ -79,7 +80,7 @@ AI จะพาคุณไล่ทีละขั้นจนระบบใ�
 
 | ไฟล์ | สำหรับใคร |
 |---|---|
-| 🤖 [**docs/SETUP-AI.md**](docs/SETUP-AI.md) | **ติดตั้งด้วย AI — เริ่มที่นี่ถ้าเขียนโปรแกรมไม่เป็น** |
+| 🤖 [**docs/SETUP-OPENCODE.md**](docs/SETUP-OPENCODE.md) | **ติดตั้งทีละขั้นด้วย OpenCode — เริ่มที่นี่ถ้าเขียนโปรแกรมไม่เป็น** |
 | 📖 [docs/USAGE.md](docs/USAGE.md) | คู่มือผู้ใช้: คำสั่งแชททั้งหมด + วิธีใช้แดชบอร์ด |
 | 🔤 [docs/GLOSSARY.md](docs/GLOSSARY.md) | ศัพท์ที่จะเจอ แปลเป็นภาษาคน (channel, webhook, deploy, D1 …) |
 | 🛠 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | อาการเสียที่พบบ่อย + วิธีสำรองข้อมูลและเริ่มใหม่ |
@@ -224,7 +225,7 @@ Everything runs in a single Worker — webhook handler, REST API, and static das
 step. Stock deduction is guarded at the SQL level (`UPDATE ... WHERE qty + ? >= 0 RETURNING qty`) so
 negative stock and race conditions are impossible.
 
-Setup guides are in Thai: [with an AI agent](docs/SETUP-AI.md) or [manually](docs/SETUP-MANUAL.md).
+Setup guides are in Thai: [step-by-step with OpenCode](docs/SETUP-OPENCODE.md) or [manually](docs/SETUP-MANUAL.md).
 `AGENTS.md` contains the full project context for AI coding agents (works with OpenCode, Cursor, Codex, Claude Code, and others).
 
 </details>
