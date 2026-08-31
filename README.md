@@ -18,6 +18,35 @@
 
 ---
 
+## 🚀 เริ่มเร็วสุด — ก๊อปข้อความนี้ไปวางให้ AI
+
+ไม่ต้องเขียนโปรแกรมเป็น ไม่ต้องรู้จักเทอร์มินัล
+ติดตั้ง [**OpenCode**](https://opencode.ai/download) (มี desktop app ดับเบิลคลิกติดตั้งได้เลย)
+เปิดโปรแกรม แล้ววางข้อความนี้ทั้งก้อน
+
+```text
+ช่วยติดตั้งระบบจัดการสต๊อกผ่าน LINE ให้ผมหน่อยครับ
+
+โปรเจกต์อยู่ที่ https://github.com/ManageWithNoobItGuy/line-stock-bot
+ให้ clone ลงมาในเครื่องผมก่อน แล้วอ่านไฟล์ AGENTS.md ในนั้นให้จบ
+จากนั้นพาผมติดตั้งทีละขั้นตามที่เขียนไว้
+
+ข้อมูลของผม:
+- ผมเขียนโปรแกรมไม่เป็น อธิบายด้วยภาษาคนธรรมดา อย่าใช้ศัพท์เทคนิคลอย ๆ
+- ผมยังไม่ได้สร้างอะไรใน LINE และ Cloudflare เลย
+- ขั้นไหนที่คุณรันคำสั่งแทนผมได้ ให้รันเลย
+- ขั้นไหนที่ผมต้องไปกดเองบนเว็บ ให้บอกชัด ๆ ว่าเข้าเว็บไหน กดปุ่มชื่ออะไร อยู่ตรงไหนของหน้า
+  แล้วรอผมตอบว่าทำเสร็จแล้วก่อนไปขั้นถัดไป
+- ถ้าต้องใช้ค่าอะไรจากผม ให้ถามทีละค่า
+```
+
+AI จะพาคุณไล่ทีละขั้นจนระบบใช้งานได้จริง เพราะโปรเจกต์นี้มีไฟล์ [`AGENTS.md`](AGENTS.md)
+ที่เขียนบอกวิธีติดตั้งทั้งหมดไว้ให้ AI อ่านแล้ว (ใช้กับ Cursor, Claude Code, Codex, Windsurf ได้เหมือนกัน)
+
+👉 **รายละเอียดทีละขั้นพร้อมสิ่งที่ต้องไปกดเองบนเว็บ LINE: [คู่มือติดตั้งด้วย AI](docs/SETUP-AI.md)**
+
+---
+
 ## นี่คืออะไร
 
 พนักงานพิมพ์ในแชท LINE ว่า **`เบิก ปากกา 5`** → บอทให้เลือกคลัง → ขึ้นการ์ดยืนยันพร้อมยอดคงเหลือก่อน/หลัง → กดยืนยันแล้วสต๊อกถูกตัดทันที
@@ -46,19 +75,16 @@
 
 ---
 
-## เริ่มใช้งาน
+## เอกสารทั้งหมด
 
-เลือกทางที่ถนัด — ทั้งสองทางได้ผลเหมือนกัน
-
-### 🤖 [ติดตั้งด้วย AI Agent](docs/SETUP-AI.md) ← แนะนำ
-
-โปรเจกต์นี้มีไฟล์ [`CLAUDE.md`](CLAUDE.md) ที่เขียนไว้ให้ AI อ่านแล้วรู้วิธีติดตั้งทั้งหมด
-คุณแค่ clone มา เปิด AI agent ในโฟลเดอร์ แล้วพิมพ์ว่า
-
-> ช่วยติดตั้งระบบนี้ให้ผมหน่อย อ่าน `CLAUDE.md` ก่อนแล้วพาผมทำทีละขั้น
-
-AI จะรันคำสั่งให้ และบอกว่าตรงไหนคุณต้องไปกดเองบนเว็บ LINE Developers
-**ใช้กับ Claude Code, Cursor, Codex, Gemini CLI หรือ AI agent ตัวไหนก็ได้**
+| ไฟล์ | สำหรับใคร |
+|---|---|
+| 🤖 [**docs/SETUP-AI.md**](docs/SETUP-AI.md) | **ติดตั้งด้วย AI — เริ่มที่นี่ถ้าเขียนโปรแกรมไม่เป็น** |
+| 📖 [docs/USAGE.md](docs/USAGE.md) | คู่มือผู้ใช้: คำสั่งแชททั้งหมด + วิธีใช้แดชบอร์ด |
+| 🔤 [docs/GLOSSARY.md](docs/GLOSSARY.md) | ศัพท์ที่จะเจอ แปลเป็นภาษาคน (channel, webhook, deploy, D1 …) |
+| 🛠 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | อาการเสียที่พบบ่อย + วิธีสำรองข้อมูลและเริ่มใหม่ |
+| ⌨️ [docs/SETUP-MANUAL.md](docs/SETUP-MANUAL.md) | ติดตั้งเองทีละคำสั่ง (สำหรับคนถนัดเทอร์มินัล) |
+| 🧠 [AGENTS.md](AGENTS.md) | บริบทสำหรับ AI agent + โครงสร้างโค้ด + จุดที่ควรแก้เวลาปรับแต่ง |
 
 ### ⌨️ [ติดตั้งเอง ทีละคำสั่ง](docs/SETUP-MANUAL.md)
 
@@ -83,24 +109,17 @@ npm run deploy
 ```
 </details>
 
-### 📖 เอกสารอื่น
-
-| ไฟล์ | เนื้อหา |
-|---|---|
-| [docs/USAGE.md](docs/USAGE.md) | คู่มือผู้ใช้: คำสั่งแชททั้งหมด + วิธีใช้แดชบอร์ด |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | อาการเสียที่พบบ่อยและวิธีแก้ |
-| [CLAUDE.md](CLAUDE.md) | บริบทสำหรับ AI agent + โครงสร้างโค้ด + จุดที่ควรแก้เวลาปรับแต่ง |
-
 ---
 
 ## สิ่งที่ต้องมี
 
 | อย่าง | หมายเหตุ |
 |---|---|
-| บัญชี [Cloudflare](https://dash.cloudflare.com/sign-up) | แผนฟรีพอ — Workers 100,000 request/วัน, D1 อ่าน 5 ล้านแถว/วัน |
-| บัญชี [LINE Developers](https://developers.line.biz/console/) | ฟรี ต้องสร้าง 2 channel (Messaging API + LINE Login) |
-| Node.js 20+ | สำหรับรัน `wrangler` |
-| Google Chrome | เฉพาะตอนสร้างรูปริชเมนู (ข้ามได้ถ้าไม่ทำริชเมนู) |
+| บัญชี [Cloudflare](https://dash.cloudflare.com/sign-up) | **ฟรี ไม่ต้องใส่บัตรเครดิต** |
+| บัญชี [LINE Developers](https://developers.line.biz/console/) | ฟรี ล็อกอินด้วยบัญชี LINE ที่ใช้อยู่ ต้องสร้าง 2 channel |
+| [OpenCode](https://opencode.ai/download) หรือ AI agent อื่น | ตัวช่วยติดตั้ง (หรือจะทำเองตาม [คู่มือ manual](docs/SETUP-MANUAL.md) ก็ได้) |
+| Node.js 20+ | AI จะบอกวิธีติดตั้งให้ถ้ายังไม่มี |
+| Google Chrome | เฉพาะตอนสร้างรูปริชเมนู (ข้ามได้) |
 
 ---
 
@@ -156,7 +175,7 @@ richmenu/           ดีไซน์ริชเมนู + สคริปต
 | แก้ริชเมนู | `richmenu/menu.html` + `richmenu/richmenu.json` |
 
 หรือจะสั่ง AI agent ให้ทำก็ได้ เช่น *"เพิ่มฟิลด์ราคาต่อหน่วย แล้วโชว์มูลค่าสต๊อกรวมในหน้าภาพรวม"*
-ตารางด้านบนมีอยู่ใน `CLAUDE.md` แล้ว AI จะแก้ถูกที่โดยไม่รื้อโค้ดมั่ว
+ตารางด้านบนมีอยู่ใน `AGENTS.md` แล้ว AI จะแก้ถูกที่โดยไม่รื้อโค้ดมั่ว
 
 ---
 
@@ -175,9 +194,12 @@ richmenu/           ดีไซน์ริชเมนู + สคริปต
 
 ## ต้นทุน
 
-ใช้งานทั่วไปในองค์กรขนาดเล็ก-กลาง **ฟรีทั้งหมด** ด้วยแผน Free ของ Cloudflare
-(Workers 100,000 request/วัน · D1 อ่าน 5 ล้านแถว/วัน เขียน 100,000 แถว/วัน)
-LINE Messaging API แผนฟรีส่งข้อความตอบกลับ (reply) ได้ไม่จำกัด
+**ฟรีทั้งหมดสำหรับการใช้งานทั่วไป และไม่มีบิลเซอร์ไพรส์**
+
+- Cloudflare แผนฟรี **ไม่ต้องใส่บัตรเครดิต** — Workers 100,000 request/วัน · D1 อ่าน 5 ล้านแถว/วัน เขียน 100,000 แถว/วัน
+- ทีม 10-30 คนใช้ไม่ถึงเพดาน (เบิกของ 1 ครั้ง ≈ ไม่กี่ request)
+- **ถ้าใช้เกินโควตา ระบบจะหยุดให้บริการชั่วคราวจนถึงเที่ยงคืน ไม่ใช่เรียกเก็บเงินเพิ่ม**
+- LINE Messaging API: ข้อความที่บอท**ตอบกลับ** (reply) ฟรีไม่จำกัด ระบบนี้ใช้แต่ reply
 
 ---
 
@@ -203,6 +225,6 @@ step. Stock deduction is guarded at the SQL level (`UPDATE ... WHERE qty + ? >= 
 negative stock and race conditions are impossible.
 
 Setup guides are in Thai: [with an AI agent](docs/SETUP-AI.md) or [manually](docs/SETUP-MANUAL.md).
-`CLAUDE.md` contains the full project context for AI coding agents.
+`AGENTS.md` contains the full project context for AI coding agents (works with OpenCode, Cursor, Codex, Claude Code, and others).
 
 </details>
