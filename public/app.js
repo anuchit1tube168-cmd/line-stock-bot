@@ -80,7 +80,17 @@ async function api(path, options = {}) {
   if (state.idToken) headers.authorization = `Bearer ${state.idToken}`;
   const res = await fetch(`/api${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `เกิดข้อผิดพลาด (${res.status})`);
+  if (!res.ok) {
+    // ล็อกอิน LINE หมดอายุ → ปลดล็อก + ขอล็อกอินใหม่เพื่อขอ token ใหม่เอง (ไม่ต้องพึ่งผู้ใช้)
+    if (res.status === 401 && /เซสชันหมดอายุ/.test(data.error || '')) {
+      try {
+        if (typeof liff !== 'undefined' && liff.isLoggedIn()) liff.logout();
+      } catch { /* ไม่เป็นไร */ }
+      if (typeof liff !== 'undefined') liff.login({ redirectUri: location.href });
+      throw new Error('ล็อกอินใหม่…');
+    }
+    throw new Error(data.error || `เกิดข้อผิดพลาด (${res.status})`);
+  }
   return data;
 }
 
@@ -101,6 +111,10 @@ async function boot() {
       state.idToken = liff.getIDToken();
       if (!state.idToken) throw new Error('ไม่ได้รับ ID token — ตรวจสอบว่าเปิด scope "openid" ใน LINE Login แล้ว');
     }
+
+    // เครื่องหมายบอกเวอร์ชัน — ถ้าเห็นข้อความนี้ แปลว่าใช้อันใหม่อยู่แล้ว
+    const bootText = document.querySelector('.boot__text');
+    if (bootText) bootText.textContent = 'กำลังโหลดข้อมูล… (เวอร์ชัน 5)';
 
     state.me = await api('/me');
     paintUser();
@@ -338,9 +352,11 @@ function renderSettingsLocations(byLocation = []) {
 /** รายชื่อผู้ใช้ + เปลี่ยนสิทธิ์ (ผู้ดูแลเท่านั้น — ซ่อนไว้สำหรับคนอื่น) */
 async function renderSettingsUsers() {
   if (state.me?.role !== 'admin') return;
+  const listEl = $('#userList');
+  if (!listEl) return; // หน้า HTML เก่า (แคช) ไม่มีช่องนี้ — ข้ามไปไม่พัง
   const users = await api('/users');
   const currentId = state.me.lineUserId;
-  $('#userList').innerHTML =
+  listEl.innerHTML =
     users
       .map(
         (u) => `<div class="row">
