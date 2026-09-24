@@ -127,6 +127,8 @@ function applyDeepLink() {
   if (p.get('p')) openProduct(Number(p.get('p')));
 }
 
+const ROLE_LABEL = { admin: 'ผู้ดูแล', staff: 'เจ้าหน้าที่', student: 'นักศึกษา' };
+
 function paintUser() {
   const name = state.me?.name || 'ผู้ใช้';
   $('#userInitial').textContent = name.trim().charAt(0).toUpperCase();
@@ -138,6 +140,22 @@ function paintUser() {
   }
   $('#meName').textContent = name;
   $('#meId').textContent = state.me?.lineUserId ?? '-';
+  $('#meRole').textContent = ROLE_LABEL[state.me?.role] ?? '-';
+  applyRoleUI();
+}
+
+/** ซ่อน/แสดงปุ่มตามสิทธิ์ (นักศึกษา / เจ้าหน้าที่ / ผู้ดูแล) */
+function applyRoleUI() {
+  const role = state.me?.role || 'student';
+  const isStudent = role === 'student';
+  const isAdmin = role === 'admin';
+  $('#fabScan')?.classList.toggle('hidden', isStudent);
+  $('#scanBtn')?.classList.toggle('hidden', isStudent);
+  $('#addProductBtn')?.classList.toggle('hidden', !isAdmin);
+  $('#addLocationBtn')?.classList.toggle('hidden', !isAdmin);
+  $('#usersCard')?.classList.toggle('hidden', !isAdmin);
+  $$('.tab[data-tab="settings"]').forEach((b) => b.classList.toggle('hidden', isStudent));
+  $('#tabbar').style.gridTemplateColumns = isStudent ? 'repeat(5, 1fr)' : '';
 }
 
 async function refreshAll() {
@@ -148,6 +166,7 @@ async function refreshAll() {
   renderLocationFilter();
   renderProducts(products);
   renderSettingsLocations(data.byLocation);
+  renderSettingsUsers();
 }
 
 async function loadProducts() {
@@ -304,6 +323,39 @@ function renderSettingsLocations(byLocation = []) {
     .join('');
 }
 
+/** รายชื่อผู้ใช้ + เปลี่ยนสิทธิ์ (ผู้ดูแลเท่านั้น — ซ่อนไว้สำหรับคนอื่น) */
+async function renderSettingsUsers() {
+  if (state.me?.role !== 'admin') return;
+  const users = await api('/users');
+  const currentId = state.me.lineUserId;
+  $('#userList').innerHTML =
+    users
+      .map(
+        (u) => `<div class="row">
+        <span class="row__label" title="${esc(u.line_user_id)}">${esc(u.display_name || u.line_user_id)}${
+          u.line_user_id === currentId ? ' <small style="color:var(--muted)">(คุณ)</small>' : ''
+        }</span>
+        <select class="role-select" data-user-id="${u.id}" data-role="${u.role}" ${u.line_user_id === currentId ? 'disabled' : ''}>
+          ${['admin', 'staff', 'student'].map((r) => `<option value="${r}" ${u.role === r ? 'selected' : ''}>${ROLE_LABEL[r]}</option>`).join('')}
+        </select>
+      </div>`,
+      )
+      .join('');
+  $$('#userList .role-select').forEach((sel) =>
+    sel.addEventListener('change', async () => {
+      try {
+        await api(`/users/${sel.dataset.userId}/role`, { method: 'PUT', body: JSON.stringify({ role: sel.value }) });
+        sel.previousElementSibling.querySelector('small')?.remove();
+        toast('เปลี่ยนสิทธิ์แล้ว', 'ok');
+        renderSettingsUsers();
+      } catch (err) {
+        toast(err.message, 'error');
+        sel.value = sel.dataset.role;
+      }
+    }),
+  );
+}
+
 /* ------------------------------------------------------------ ประวัติ */
 
 async function renderHistory() {
@@ -346,6 +398,8 @@ async function openProduct(id) {
   try {
     const { product, levels, movements, total } = await api(`/products/${id}`);
     const cls = stockClass(total, product.min_qty);
+    const canMove = (state.me?.role ?? 'student') !== 'student';
+    const isAdmin = state.me?.role === 'admin';
     openSheet(`
       ${sheetHead(product.name, `${product.sku}${product.barcode ? ' · ' + product.barcode : ''}`)}
       ${product.image ? `<img src="${IMAGE_BASE + encodeURIComponent(product.image)}" alt="${esc(product.name)}" loading="lazy" style="width:100%;border-radius:12px;margin-top:10px;max-height:210px;object-fit:cover" onerror="this.remove()">` : ''}
@@ -358,12 +412,16 @@ async function openProduct(id) {
         ${product.category ? ' · ' + esc(product.category) : ''}
       </div>
 
-      <div class="btn-grid" style="margin-top:16px">
+      ${
+        canMove
+          ? `<div class="btn-grid" style="margin-top:16px">
         <button class="btn btn--issue" data-move="issue" data-id="${product.id}">📤 เบิกออก</button>
         <button class="btn btn--receive" data-move="receive" data-id="${product.id}">📥 รับเข้า</button>
         <button class="btn btn--ghost" data-move="adjust" data-id="${product.id}">⚖️ ปรับยอด</button>
         <button class="btn btn--ghost" data-move="transfer" data-id="${product.id}">🔁 ย้ายคลัง</button>
-      </div>
+      </div>`
+          : '<div class="hint" style="margin-top:14px">คุณเป็นนักศึกษา — ติดต่อเจ้าหน้าที่หากต้องการเบิก/ส่งคืน</div>'
+      }
 
       <section>
         <h3>คงเหลือแยกตามคลัง</h3>
@@ -382,9 +440,13 @@ async function openProduct(id) {
         <div class="timeline">${movements.length ? movements.slice(0, 12).map(movementRow).join('') : '<div class="empty">ยังไม่มีรายการ</div>'}</div>
       </section>
 
-      <section>
+      ${
+        isAdmin
+          ? `<section>
         <button class="btn btn--ghost btn--block" data-edit-product="${product.id}">แก้ไขข้อมูลสินค้า</button>
-      </section>
+      </section>`
+          : ''
+      }
     `);
   } catch (err) {
     toast(err.message, 'error');
@@ -711,8 +773,10 @@ function loanCard(l) {
       </div>`,
     )
     .join('');
-  const actions =
-    l.status === 'pending'
+  const canManageLoan = (state.me?.role ?? 'student') !== 'student';
+  const actions = !canManageLoan
+    ? `<div class="hint" style="margin-top:10px">รอเจ้าหน้าที่${l.status === 'active' ? 'รับคืน' : 'ตรวจสอบคำขอ'}</div>`
+    : l.status === 'pending'
       ? `<div class="btn-grid" style="margin-top:12px">
           <button class="btn btn--receive" data-loan-approve="${l.id}">✅ อนุมัติ</button>
           <button class="btn btn--ghost" data-loan-reject="${l.id}">ไม่อนุมัติ</button>
@@ -1001,6 +1065,7 @@ function initSigPad(canvas) {
 
 function switchTab(tab) {
   if (!['overview', 'products', 'history', 'loans', 'settings'].includes(tab)) return;
+  if (tab === 'settings' && state.me?.role === 'student') return;
   state.tab = tab;
   $$('.view').forEach((v) => (v.hidden = v.dataset.view !== tab));
   $$('.tab[data-tab]').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));

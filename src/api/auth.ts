@@ -1,11 +1,12 @@
 import type { Context, Next } from 'hono';
-import type { Env } from '../types';
+import type { Env, Role } from '../types';
 import * as repo from '../db/repo';
 
 export interface AuthUser {
   lineUserId: string;
   name: string | null;
   picture: string | null;
+  role: Role;
 }
 
 interface VerifyResponse {
@@ -33,7 +34,7 @@ export async function verifyIdToken(env: Env, idToken: string): Promise<AuthUser
   }
   const data = (await res.json()) as VerifyResponse;
   if (!data.sub) return null;
-  return { lineUserId: data.sub, name: data.name ?? null, picture: data.picture ?? null };
+  return { lineUserId: data.sub, name: data.name ?? null, picture: data.picture ?? null, role: 'student' };
 }
 
 export type AppContext = Context<{ Bindings: Env; Variables: { user: AuthUser } }>;
@@ -48,6 +49,7 @@ export async function requireAuth(c: AppContext, next: Next): Promise<Response |
       lineUserId: c.env.DEV_LINE_USER_ID,
       name: c.env.DEV_LINE_DISPLAY_NAME ?? 'Dev User',
       picture: null,
+      role: 'admin',
     };
     await repo.ensureUser(c.env.DB, user.lineUserId, user.name, null);
     c.set('user', user);
@@ -60,6 +62,18 @@ export async function requireAuth(c: AppContext, next: Next): Promise<Response |
   if (!user) return c.json({ error: 'เซสชันหมดอายุ กรุณาเปิดแอปใหม่อีกครั้ง' }, 401);
 
   await repo.ensureUser(c.env.DB, user.lineUserId, user.name, user.picture);
+  user.role = await repo.getUserRole(c.env.DB, user.lineUserId);
   c.set('user', user);
   return next();
+}
+
+/** จำกัดสิทธิ์: อนุญาตเฉพาะผู้ใช้ที่มี role ตามที่กำหนด */
+export function requireRole(...roles: Role[]) {
+  return async (c: AppContext, next: Next): Promise<Response | void> => {
+    const u = c.get('user');
+    if (!u || !roles.includes(u.role)) {
+      return c.json({ error: 'คุณไม่มีสิทธิ์ทำรายการนี้' }, 403);
+    }
+    return next();
+  };
 }

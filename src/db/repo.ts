@@ -1,4 +1,4 @@
-import type { Actor, Draft, DraftPayload, DraftStep, LoanItemRow, LoanRow, LoanStatus, Location, MovementType, Product } from '../types';
+import type { Actor, Draft, DraftPayload, DraftStep, LoanItemRow, LoanRow, LoanStatus, Location, MovementType, Product, Role } from '../types';
 import { AppError, makeRef, norm } from '../lib/util';
 
 /* ------------------------------------------------------------------ users */
@@ -744,4 +744,43 @@ export async function rejectLoan(db: D1Database, id: number, actor: Actor, note?
     throw new AppError('ไม่อนุมัติได้เฉพาะคำขอที่รออนุมัติเท่านั้น');
   }
   return getLoan(db, id);
+}
+
+/* ------------------------------------------------------------------ roles */
+
+export async function getUserRole(db: D1Database, lineUserId: string): Promise<Role> {
+  const row = await db.prepare('SELECT role FROM users WHERE line_user_id = ?').bind(lineUserId).first<{ role: Role }>();
+  return row?.role ?? 'student';
+}
+
+export interface UserRow {
+  id: number;
+  line_user_id: string;
+  display_name: string | null;
+  role: Role;
+  last_seen_at: string | null;
+}
+
+export async function listUsers(db: D1Database): Promise<UserRow[]> {
+  const { results } = await db
+    .prepare('SELECT id, line_user_id, display_name, role, last_seen_at FROM users ORDER BY last_seen_at DESC, id')
+    .all<UserRow>();
+  return results ?? [];
+}
+
+/** เปลี่ยนสิทธิ์ผู้ใช้ (admin เท่านั้น) — กันเปลี่ยนสิทธิ์ตัวเอง กันล็อกเอาต์ไม่มีผู้ดูแล */
+export async function updateUserRole(db: D1Database, userId: number, role: Role, actorLineUserId: string): Promise<UserRow> {
+  if (!['admin', 'staff', 'student'].includes(role)) throw new AppError('สิทธิ์ไม่ถูกต้อง');
+  const target = await db
+    .prepare('SELECT id, line_user_id, display_name, role, last_seen_at FROM users WHERE id = ?')
+    .bind(userId)
+    .first<UserRow>();
+  if (!target) throw new AppError('ไม่พบผู้ใช้', 404);
+  if (target.line_user_id === actorLineUserId) throw new AppError('ไม่สามารถเปลี่ยนสิทธิ์ของตัวเองได้');
+  if (target.role === 'admin' && role !== 'admin') {
+    const admins = await db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'").first<{ c: number }>();
+    if ((admins?.c ?? 0) <= 1) throw new AppError('ต้องมีผู้ดูแลอย่างน้อย 1 คน — เพิ่มผู้ดูแลคนใหม่ก่อนจึงเปลี่ยนคนนี้ได้');
+  }
+  await db.prepare('UPDATE users SET role = ? WHERE id = ?').bind(role, userId).run();
+  return { ...target, role };
 }

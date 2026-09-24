@@ -20,6 +20,8 @@ export type ActionType = 'issue' | 'receive' | 'adjust' | 'transfer';
 
 export type LoanStatus = 'pending' | 'active' | 'returned' | 'rejected';
 
+export type Role = 'admin' | 'staff' | 'student';
+
 export interface LoanItemRow {
   id: number;
   loan_id: string;

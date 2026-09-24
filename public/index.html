@@ -135,7 +135,14 @@
         <div class="list">
           <div class="row"><span class="row__label">ชื่อ</span><span class="row__value" id="meName">-</span></div>
           <div class="row"><span class="row__label">LINE User ID</span><span class="row__value mono" id="meId">-</span></div>
+          <div class="row"><span class="row__label">สิทธิ์</span><span class="row__value" id="meRole">-</span></div>
         </div>
+      </div>
+
+      <div class="card" id="usersCard" hidden>
+        <div class="card__head"><h2>ผู้ใช้งาน</h2></div>
+        <p style="font-size:11.5px;color:var(--muted);margin:0 0 8px">ตั้งสิทธิ์ให้แต่ละคน: นักศึกษา ดูยอด+ขอยืมได้อย่างเดียว · เจ้าหน้าที่ เบิก/รับ/อนุมัติยืมได้ · ผู้ดูแล จัดการทุกอย่าง + ตั้งสิทธิ์</p>
+        <div id="userList" class="list"></div>
       </div>
       <div class="footnote">LINE Stock · ทำงานบน Cloudflare Workers + D1</div>
     </section>

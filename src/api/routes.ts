@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { Env, LoanStatus } from '../types';
 import * as repo from '../db/repo';
 import { AppError, makeRef } from '../lib/util';
-import { requireAuth, type AuthUser } from './auth';
+import { requireAuth, requireRole, type AuthUser } from './auth';
 
 type Vars = { Variables: { user: AuthUser }; Bindings: Env };
 
@@ -44,13 +44,13 @@ api.get('/summary', async (c) => {
 
 api.get('/locations', async (c) => c.json(await repo.listLocations(c.env.DB, false)));
 
-api.post('/locations', async (c) => {
+api.post('/locations', requireRole('admin'), async (c) => {
   const body = await c.req.json<{ code: string; name: string; is_default?: boolean }>();
   if (!body.code?.trim() || !body.name?.trim()) throw new AppError('กรุณากรอกรหัสและชื่อคลัง');
   return c.json(await repo.createLocation(c.env.DB, body.code, body.name, !!body.is_default), 201);
 });
 
-api.put('/locations/:id', async (c) => {
+api.put('/locations/:id', requireRole('admin'), async (c) => {
   const body = await c.req.json<Record<string, unknown>>();
   const patch: Record<string, unknown> = { ...body };
   if ('is_default' in body) patch.is_default = body.is_default ? 1 : 0;
@@ -58,7 +58,7 @@ api.put('/locations/:id', async (c) => {
   return c.json(await repo.updateLocation(c.env.DB, Number(c.req.param('id')), patch as never));
 });
 
-api.delete('/locations/:id', async (c) => {
+api.delete('/locations/:id', requireRole('admin'), async (c) => {
   await repo.deleteLocation(c.env.DB, Number(c.req.param('id')));
   return c.json({ ok: true });
 });
@@ -91,7 +91,7 @@ api.get('/products/:id', async (c) => {
   return c.json({ product, levels, movements, total: levels.reduce((s, l) => s + l.qty, 0) });
 });
 
-api.post('/products', async (c) => {
+api.post('/products', requireRole('admin'), async (c) => {
   const body = await c.req.json<Record<string, never>>();
   const product = await repo.createProduct(c.env.DB, body);
   // ตั้งยอดเริ่มต้นถ้าระบุมา
@@ -106,12 +106,12 @@ api.post('/products', async (c) => {
   return c.json(product, 201);
 });
 
-api.put('/products/:id', async (c) => {
+api.put('/products/:id', requireRole('admin'), async (c) => {
   const body = await c.req.json<Record<string, never>>();
   return c.json(await repo.updateProduct(c.env.DB, Number(c.req.param('id')), body));
 });
 
-api.delete('/products/:id', async (c) => {
+api.delete('/products/:id', requireRole('admin'), async (c) => {
   await repo.archiveProduct(c.env.DB, Number(c.req.param('id')));
   return c.json({ ok: true });
 });
@@ -125,7 +125,7 @@ api.get('/movements', async (c) => {
   return c.json(await repo.listMovements(c.env.DB, { productId, locationId, limit }));
 });
 
-api.post('/movements', async (c) => {
+api.post('/movements', requireRole('staff', 'admin'), async (c) => {
   const body = await c.req.json<{
     action: 'issue' | 'receive' | 'adjust' | 'transfer';
     productId: number;
@@ -198,8 +198,8 @@ api.post('/loans', async (c) => {
   return c.json(loan, 201);
 });
 
-/** อนุมัติคำขอยืม */
-api.post('/loans/:id/approve', async (c) => {
+/** อนุมัติคำขอยืม (เจ้าหน้าที่/ผู้ดูแลเท่านั้น) */
+api.post('/loans/:id/approve', requireRole('staff', 'admin'), async (c) => {
   const user = c.get('user');
   return c.json(
     await repo.approveLoan(c.env.DB, Number(c.req.param('id')), {
@@ -210,8 +210,8 @@ api.post('/loans/:id/approve', async (c) => {
   );
 });
 
-/** ส่งคืนพัสดุ */
-api.post('/loans/:id/return', async (c) => {
+/** ส่งคืนพัสดุ (เจ้าหน้าที่/ผู้ดูแล) */
+api.post('/loans/:id/return', requireRole('staff', 'admin'), async (c) => {
   const body = await c.req.json<{ signature?: string; note?: string }>();
   const user = c.get('user');
   return c.json(
@@ -225,8 +225,8 @@ api.post('/loans/:id/return', async (c) => {
   );
 });
 
-/** ไม่อนุมัติคำขอยืม */
-api.post('/loans/:id/reject', async (c) => {
+/** ไม่อนุมัติคำขอยืม (เจ้าหน้าที่/ผู้ดูแล) */
+api.post('/loans/:id/reject', requireRole('staff', 'admin'), async (c) => {
   const body = await c.req.json<{ note?: string }>();
   const user = c.get('user');
   return c.json(
@@ -237,4 +237,16 @@ api.post('/loans/:id/reject', async (c) => {
       body.note,
     ),
   );
+});
+
+/* ------------------------------------------------------------------ users */
+
+/** รายชื่อผู้ใช้ทั้งหมด (ผู้ดูแลเท่านั้น) */
+api.get('/users', requireRole('admin'), async (c) => c.json(await repo.listUsers(c.env.DB)));
+
+/** เปลี่ยนสิทธิ์ผู้ใช้ (ผู้ดูแลเท่านั้น) */
+api.put('/users/:id/role', requireRole('admin'), async (c) => {
+  const body = await c.req.json<{ role: string }>();
+  const user = c.get('user');
+  return c.json(await repo.updateUserRole(c.env.DB, Number(c.req.param('id')), body.role as never, user.lineUserId));
 });

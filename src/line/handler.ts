@@ -1,4 +1,4 @@
-import type { ActionType, Draft, DraftPayload, Env } from '../types';
+import type { ActionType, Draft, DraftPayload, Env, Role } from '../types';
 import * as repo from '../db/repo';
 import * as F from './flex';
 import { getProfile, reply, type LineMessage } from './client';
@@ -15,6 +15,7 @@ interface Ctx {
   chatKey: string;
   userId: string | null;
   userName: string | null;
+  role: Role;
 }
 
 /* --------------------------------------------------------- event router */
@@ -26,13 +27,15 @@ export async function handleEvent(env: Env, event: any): Promise<void> {
   if (!chatKey) return;
 
   let userName: string | null = null;
+  let role: Role = 'student';
   if (source.userId) {
     const profile = await getProfile(env, source.userId);
     userName = profile?.displayName ?? null;
     await repo.ensureUser(db, source.userId, userName, profile?.pictureUrl ?? null);
+    role = await repo.getUserRole(db, source.userId);
   }
 
-  const ctx: Ctx = { env, db, chatKey, userId: source.userId ?? null, userName };
+  const ctx: Ctx = { env, db, chatKey, userId: source.userId ?? null, userName, role };
 
   if (event.type === 'follow' || event.type === 'join') {
     await reply(env, event.replyToken, [
@@ -61,7 +64,7 @@ export async function simulate(
   chatKey: string,
   input: { text?: string; postback?: string },
 ): Promise<LineMessage[]> {
-  const ctx: Ctx = { env, db: env.DB, chatKey, userId: chatKey, userName: 'ผู้ทดสอบ' };
+  const ctx: Ctx = { env, db: env.DB, chatKey, userId: chatKey, userName: 'ผู้ทดสอบ', role: 'admin' };
   if (input.postback !== undefined) return handlePostback(ctx, new URLSearchParams(input.postback));
   return handleText(ctx, input.text ?? '');
 }
@@ -160,6 +163,9 @@ async function handleText(ctx: Ctx, raw: string): Promise<LineMessage[]> {
     }
 
     case 'action': {
+      if (ctx.role === 'student') {
+        return [F.text('นักศึกษาไม่มีสิทธิ์เบิก/รับเข้า/ปรับยอด/ย้ายคลัง — ติดต่อเจ้าหน้าที่หรือผู้ดูแลเพื่อทำรายการแทนครับ')];
+      }
       const payload: DraftPayload = {
         action: intent.action,
         query: intent.query,
@@ -371,6 +377,11 @@ async function commit(ctx: Ctx, draft: Draft): Promise<LineMessage[]> {
   if (!product || !p.locationId || p.qty === undefined) {
     await repo.clearDraft(db, ctx.chatKey);
     return [F.text('ข้อมูลรายการไม่ครบ กรุณาเริ่มใหม่ครับ')];
+  }
+
+  if (ctx.role === 'student') {
+    await repo.clearDraft(db, ctx.chatKey);
+    return [F.text('นักศึกษาไม่มีสิทธิ์ทำรายการสต๊อก — ติดต่อเจ้าหน้าที่หรือผู้ดูแลครับ')];
   }
 
   const actor = { lineUserId: ctx.userId, name: ctx.userName, source: 'line' as const };
