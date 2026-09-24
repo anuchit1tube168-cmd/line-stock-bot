@@ -104,7 +104,11 @@ async function boot() {
 
     state.me = await api('/me');
     paintUser();
-    await refreshAll();
+    try {
+      await refreshAll();
+    } catch (e) {
+      toast(`โหลดข้อมูลไม่สำเร็จ: ${e.message}`, 'error');
+    }
 
     $('#boot').hidden = true;
     $('#app').hidden = false;
@@ -131,16 +135,23 @@ const ROLE_LABEL = { admin: 'ผู้ดูแล', staff: 'เจ้าหน�
 
 function paintUser() {
   const name = state.me?.name || 'ผู้ใช้';
-  $('#userInitial').textContent = name.trim().charAt(0).toUpperCase();
+  const initial = $('#userInitial');
+  if (initial) initial.textContent = name.trim().charAt(0).toUpperCase();
   if (state.me?.picture) {
     const img = $('#userAvatar');
-    img.src = state.me.picture;
-    img.hidden = false;
-    $('#userInitial').hidden = true;
+    if (img) {
+      img.src = state.me.picture;
+      img.hidden = false;
+      if (initial) initial.hidden = true;
+    }
   }
-  $('#meName').textContent = name;
-  $('#meId').textContent = state.me?.lineUserId ?? '-';
-  $('#meRole').textContent = ROLE_LABEL[state.me?.role] ?? '-';
+  const set = (id, val) => {
+    const el = $(`#${id}`);
+    if (el) el.textContent = val;
+  };
+  set('meName', name);
+  set('meId', state.me?.lineUserId ?? '-');
+  set('meRole', ROLE_LABEL[state.me?.role] ?? '-');
   applyRoleUI();
 }
 
@@ -155,7 +166,8 @@ function applyRoleUI() {
   $('#addLocationBtn')?.classList.toggle('hidden', !isAdmin);
   $('#usersCard')?.classList.toggle('hidden', !isAdmin);
   $$('.tab[data-tab="settings"]').forEach((b) => b.classList.toggle('hidden', isStudent));
-  $('#tabbar').style.gridTemplateColumns = isStudent ? 'repeat(5, 1fr)' : '';
+  const tabbar = $('#tabbar');
+  if (tabbar) tabbar.style.gridTemplateColumns = isStudent ? 'repeat(5, 1fr)' : '';
 }
 
 async function refreshAll() {
