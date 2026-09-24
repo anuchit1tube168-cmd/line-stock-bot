@@ -15,14 +15,14 @@
     {
       "binding": "DB",
       "database_name": "line-stock",
-      "database_id": "PUT_YOUR_D1_DATABASE_ID_HERE",
+      "database_id": "f56c04cb-1c7b-46d6-9901-6b6f5b1e2666",
       "migrations_dir": "migrations"
     }
   ],
 
   "vars": {
     "ENVIRONMENT": "production",
-    "LINE_LOGIN_CHANNEL_ID": "",
-    "LIFF_ID": ""
+    "LINE_LOGIN_CHANNEL_ID": "2011721807",
+    "LIFF_ID": "2011721807-0ePhNOYG"
   }
 }
