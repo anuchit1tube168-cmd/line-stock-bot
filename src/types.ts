@@ -18,6 +18,41 @@ export interface Env {
 export type MovementType = 'issue' | 'receive' | 'adjust' | 'transfer_out' | 'transfer_in';
 export type ActionType = 'issue' | 'receive' | 'adjust' | 'transfer';
 
+export type LoanStatus = 'pending' | 'active' | 'returned' | 'rejected';
+
+export interface LoanItemRow {
+  id: number;
+  loan_id: string;
+  product_id: number;
+  name: string;
+  sku: string | null;
+  unit: string | null;
+  qty: number;
+  image?: string | null;
+}
+
+export interface LoanRow {
+  id: number;
+  loan_id: string;
+  borrower_name: string;
+  borrower_code: string | null;
+  purpose: string | null;
+  due_date: string | null;
+  status: LoanStatus;
+  signature: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_by_name: string | null;
+  created_at: string;
+  approved_at: string | null;
+  approved_by: string | null;
+  returned_at: string | null;
+  returned_by: string | null;
+  return_signature: string | null;
+  return_note: string | null;
+  items?: LoanItemRow[];
+}
+
 export interface Product {
   id: number;
   sku: string;

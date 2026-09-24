@@ -1,4 +1,4 @@
-import type { Actor, Draft, DraftPayload, DraftStep, Location, MovementType, Product } from '../types';
+import type { Actor, Draft, DraftPayload, DraftStep, LoanItemRow, LoanRow, LoanStatus, Location, MovementType, Product } from '../types';
 import { AppError, makeRef, norm } from '../lib/util';
 
 /* ------------------------------------------------------------------ users */
@@ -594,4 +594,154 @@ export async function isDuplicateEvent(db: D1Database, eventId: string): Promise
 
 export async function purgeOldEvents(db: D1Database): Promise<void> {
   await db.prepare('DELETE FROM processed_events WHERE created_at < ?').bind(Date.now() - 86_400_000).run();
+}
+
+/* ------------------------------------------------------------------ loans */
+
+export interface LoanCreateItem {
+  productId: number;
+  qty: number;
+}
+
+export interface LoanCreateInput {
+  loanId: string;
+  borrowerName: string;
+  borrowerCode?: string | null;
+  purpose?: string | null;
+  dueDate?: string | null;
+  signature?: string | null;
+  items: LoanCreateItem[];
+  actor: Actor;
+}
+
+async function loanItemsByLoanId(db: D1Database, loanId: string): Promise<LoanItemRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT li.*, p.image AS image
+       FROM loan_items li LEFT JOIN products p ON p.id = li.product_id
+       WHERE li.loan_id = ? ORDER BY li.id`,
+    )
+    .bind(loanId)
+    .all<LoanItemRow>();
+  return results ?? [];
+}
+
+/** สร้างคำขอยืมใหม่ (สถานะรออนุมัติ) — snapshot ชื่อ/รหัส/หน่วยจากสินค้าตอนยืม */
+export async function createLoan(db: D1Database, input: LoanCreateInput): Promise<LoanRow> {
+  if (!input.borrowerName?.trim()) throw new AppError('กรุณาระบุชื่อผู้ขอยืม');
+  if (!input.items.length) throw new AppError('กรุณาเลือกรายการพัสดุที่จะยืม');
+  const itemRows: { productId: number; name: string; sku: string | null; unit: string; qty: number }[] = [];
+  for (const it of input.items) {
+    if (!Number.isFinite(it.qty) || it.qty <= 0) throw new AppError('จำนวนของที่ยืมต้องมากกว่า 0');
+    const p = await getProduct(db, it.productId);
+    if (!p) throw new AppError('ไม่พบพัสดุที่เลือก บางรายการอาจถูกลบไปแล้ว');
+    itemRows.push({ productId: p.id, name: p.name, sku: p.sku, unit: p.unit, qty: it.qty });
+  }
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO loans (loan_id, borrower_name, borrower_code, purpose, due_date, signature, created_by, created_by_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        input.loanId,
+        input.borrowerName.trim(),
+        input.borrowerCode?.trim() || null,
+        input.purpose?.trim() || null,
+        input.dueDate?.trim() || null,
+        input.signature || null,
+        input.actor.lineUserId,
+        input.actor.name,
+      ),
+    ...itemRows.map((r) =>
+      db
+        .prepare(`INSERT INTO loan_items (loan_id, product_id, name, sku, unit, qty) VALUES (?, ?, ?, ?, ?, ?)`)
+        .bind(input.loanId, r.productId, r.name, r.sku, r.unit, r.qty),
+    ),
+  ]);
+  const loan = await db.prepare('SELECT * FROM loans WHERE loan_id = ?').bind(input.loanId).first<LoanRow>();
+  return { ...loan!, items: await loanItemsByLoanId(db, input.loanId) };
+}
+
+export async function getLoan(db: D1Database, id: number): Promise<LoanRow> {
+  const loan = await db.prepare('SELECT * FROM loans WHERE id = ?').bind(id).first<LoanRow>();
+  if (!loan) throw new AppError('ไม่พบคำขอยืม', 404);
+  return { ...loan, items: await loanItemsByLoanId(db, loan.loan_id) };
+}
+
+export async function listLoans(
+  db: D1Database,
+  opts: { status?: LoanStatus; limit?: number } = {},
+): Promise<LoanRow[]> {
+  const where: string[] = [];
+  const binds: unknown[] = [];
+  if (opts.status) {
+    where.push('status = ?');
+    binds.push(opts.status);
+  }
+  const rows = await db
+    .prepare(`SELECT * FROM loans ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ?`)
+    .bind(...binds, opts.limit ?? 300)
+    .all<LoanRow>();
+  const loans = rows.results ?? [];
+  const withItems = await Promise.all(loans.map(async (l) => ({ ...l, items: await loanItemsByLoanId(db, l.loan_id) })));
+  return withItems;
+}
+
+/** อนุมัติคำขอยืม (รออนุมัติ → กำลังยืม) */
+export async function approveLoan(db: D1Database, id: number, actor: Actor): Promise<LoanRow> {
+  const row = await db
+    .prepare(
+      `UPDATE loans SET status = 'active', approved_at = datetime('now'), approved_by = ?
+       WHERE id = ? AND status = 'pending' RETURNING id`,
+    )
+    .bind(actor.lineUserId, id)
+    .first<{ id: number }>();
+  if (!row) {
+    const cur = await db.prepare('SELECT status FROM loans WHERE id = ?').bind(id).first<{ status: string }>();
+    if (!cur) throw new AppError('ไม่พบคำขอยืม', 404);
+    throw new AppError('อนุมัติได้เฉพาะคำขอที่รออนุมัติเท่านั้น');
+  }
+  return getLoan(db, id);
+}
+
+/** ส่งคืนพัสดุ (กำลังยืม → ส่งคืนแล้ว) */
+export async function returnLoan(
+  db: D1Database,
+  id: number,
+  actor: Actor,
+  signature?: string | null,
+  note?: string | null,
+): Promise<LoanRow> {
+  const row = await db
+    .prepare(
+      `UPDATE loans SET status = 'returned', returned_at = datetime('now'), returned_by = ?,
+              return_signature = ?, return_note = ?
+       WHERE id = ? AND status = 'active' RETURNING id`,
+    )
+    .bind(actor.lineUserId, signature || null, note || null, id)
+    .first<{ id: number }>();
+  if (!row) {
+    const cur = await db.prepare('SELECT status FROM loans WHERE id = ?').bind(id).first<{ status: string }>();
+    if (!cur) throw new AppError('ไม่พบคำขอยืม', 404);
+    throw new AppError('ส่งคืนได้เฉพาะรายการที่อนุมัติแล้วเท่านั้น');
+  }
+  return getLoan(db, id);
+}
+
+/** ไม่อนุมัติคำขอยืม (รออนุมัติ → ไม่อนุมัติ) */
+export async function rejectLoan(db: D1Database, id: number, actor: Actor, note?: string | null): Promise<LoanRow> {
+  const row = await db
+    .prepare(
+      `UPDATE loans SET status = 'rejected', approved_at = datetime('now'), approved_by = ?, note = ?
+       WHERE id = ? AND status = 'pending' RETURNING id`,
+    )
+    .bind(actor.lineUserId, note || null, id)
+    .first<{ id: number }>();
+  if (!row) {
+    const cur = await db.prepare('SELECT status FROM loans WHERE id = ?').bind(id).first<{ status: string }>();
+    if (!cur) throw new AppError('ไม่พบคำขอยืม', 404);
+    throw new AppError('ไม่อนุมัติได้เฉพาะคำขอที่รออนุมัติเท่านั้น');
+  }
+  return getLoan(db, id);
 }

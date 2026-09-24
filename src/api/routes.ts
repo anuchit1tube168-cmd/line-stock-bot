@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
-import type { Env } from '../types';
+import type { Env, LoanStatus } from '../types';
 import * as repo from '../db/repo';
-import { AppError } from '../lib/util';
+import { AppError, makeRef } from '../lib/util';
 import { requireAuth, type AuthUser } from './auth';
 
 type Vars = { Variables: { user: AuthUser }; Bindings: Env };
@@ -161,4 +161,80 @@ api.post('/movements', async (c) => {
   }
   const levels = await repo.getLevels(db, body.productId);
   return c.json({ ...result, levels });
+});
+
+/* ------------------------------------------------------------------ loans */
+
+/** รายการขอยืมทั้งหมด (กรองตามสถานะได้) */
+api.get('/loans', async (c) => {
+  const status = c.req.query('status');
+  const loans = await repo.listLoans(c.env.DB, status ? { status: status as LoanStatus } : {});
+  return c.json(loans);
+});
+
+/** สร้างคำขอยืมใหม่ (สถานะ: รออนุมัติ) */
+api.post('/loans', async (c) => {
+  const body = await c.req.json<{
+    borrowerName: string;
+    borrowerCode?: string;
+    purpose?: string;
+    dueDate?: string;
+    signature?: string;
+    items: { productId: number; qty: number }[];
+  }>();
+  if (!body.borrowerName?.trim()) throw new AppError('กรุณาระบุชื่อผู้ขอยืม');
+  if (!Array.isArray(body.items) || !body.items.length) throw new AppError('กรุณาเลือกรายการพัสดุที่จะยืม');
+  const user = c.get('user');
+  const loan = await repo.createLoan(c.env.DB, {
+    loanId: makeRef('LN'),
+    borrowerName: body.borrowerName,
+    borrowerCode: body.borrowerCode,
+    purpose: body.purpose,
+    dueDate: body.dueDate,
+    signature: body.signature,
+    items: body.items,
+    actor: { lineUserId: user.lineUserId, name: user.name, source: 'liff' },
+  });
+  return c.json(loan, 201);
+});
+
+/** อนุมัติคำขอยืม */
+api.post('/loans/:id/approve', async (c) => {
+  const user = c.get('user');
+  return c.json(
+    await repo.approveLoan(c.env.DB, Number(c.req.param('id')), {
+      lineUserId: user.lineUserId,
+      name: user.name,
+      source: 'liff',
+    }),
+  );
+});
+
+/** ส่งคืนพัสดุ */
+api.post('/loans/:id/return', async (c) => {
+  const body = await c.req.json<{ signature?: string; note?: string }>();
+  const user = c.get('user');
+  return c.json(
+    await repo.returnLoan(
+      c.env.DB,
+      Number(c.req.param('id')),
+      { lineUserId: user.lineUserId, name: user.name, source: 'liff' },
+      body.signature,
+      body.note,
+    ),
+  );
+});
+
+/** ไม่อนุมัติคำขอยืม */
+api.post('/loans/:id/reject', async (c) => {
+  const body = await c.req.json<{ note?: string }>();
+  const user = c.get('user');
+  return c.json(
+    await repo.rejectLoan(
+      c.env.DB,
+      Number(c.req.param('id')),
+      { lineUserId: user.lineUserId, name: user.name, source: 'liff' },
+      body.note,
+    ),
+  );
 });

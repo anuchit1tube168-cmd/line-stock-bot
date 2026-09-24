@@ -663,10 +663,344 @@ async function scanAndOpen() {
   }
 }
 
+/* ------------------------------------------------------------- ยืม/คืน */
+
+const LOAN_STATUS = {
+  pending:  { label: 'รออนุมัติ', cls: 'low' },
+  active:   { label: 'กำลังยืม', cls: 'ok' },
+  returned: { label: 'ส่งคืนแล้ว', cls: 'ok' },
+  rejected: { label: 'ไม่อนุมัติ', cls: 'issue' },
+};
+
+async function renderLoans() {
+  const list = $('#loanList');
+  list.innerHTML = '<div class="skeleton"></div>';
+  let loans = [];
+  try {
+    loans = await api('/loans');
+  } catch (err) {
+    list.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+    return;
+  }
+  const pending = loans.filter((l) => l.status === 'pending');
+  const active = loans.filter((l) => l.status === 'active');
+  const history = loans.filter((l) => l.status === 'returned' || l.status === 'rejected');
+  list.innerHTML = loans.length
+    ? loanGroup('⏳ รออนุมัติ', pending) + loanGroup('📦 กำลังยืม', active) + loanGroup('🗂️ ประวัติ', history)
+    : '<div class="empty">ยังไม่มีคำขอยืม — กดปุ่ม "ขอยืมใหม่" ด้านบนเพื่อเริ่มต้น</div>';
+}
+
+function loanGroup(title, loans) {
+  if (!loans.length) return '';
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card__head">
+      <h2>${title}</h2>
+      <span style="color:var(--muted);font-size:13px">${loans.length} รายการ</span>
+    </div>
+    <div class="list">${loans.map((l) => loanCard(l)).join('')}</div>
+  </div>`;
+}
+
+function loanCard(l) {
+  const st = LOAN_STATUS[l.status] ?? { label: l.status, cls: '' };
+  const items = (l.items || [])
+    .map(
+      (it) => `<div class="loan-item">
+        <span>${esc(it.name)} ${it.sku ? `<small>· ${esc(it.sku)}</small>` : ''}</span>
+        <b>× ${fmt(it.qty)} ${esc(it.unit || '')}</b>
+      </div>`,
+    )
+    .join('');
+  const actions =
+    l.status === 'pending'
+      ? `<div class="btn-grid" style="margin-top:12px">
+          <button class="btn btn--receive" data-loan-approve="${l.id}">✅ อนุมัติ</button>
+          <button class="btn btn--ghost" data-loan-reject="${l.id}">ไม่อนุมัติ</button>
+        </div>`
+      : l.status === 'active'
+        ? `<button class="btn btn--primary btn--block" style="margin-top:12px" data-loan-return="${l.id}">📦 ส่งคืนพัสดุ</button>`
+        : '';
+  return `<div class="loan-card">
+    <div class="loan-card__top">
+      <div>
+        <div class="loan-card__id">${esc(l.loan_id)} <span class="badge badge--${st.cls}">${st.label}</span></div>
+        <div class="loan-card__who">${esc(l.borrower_name)}${l.borrower_code ? ' · ' + esc(l.borrower_code) : ''}</div>
+      </div>
+      <div class="loan-card__time">${relTime(l.created_at)}</div>
+    </div>
+    <div class="loan-card__items">${items}</div>
+    <div class="loan-card__meta">
+      ${l.purpose ? `<span>📝 ${esc(l.purpose)}</span>` : ''}
+      ${l.due_date ? `<span>⏰ คืนภายใน ${fmtDueDate(l.due_date)}</span>` : ''}
+      ${l.note ? `<span>💬 ${esc(l.note)}</span>` : ''}
+    </div>
+    ${actions}
+  </div>`;
+}
+
+function fmtDueDate(d) {
+  const dt = new Date(String(d).slice(0, 10) + 'T00:00:00');
+  if (Number.isNaN(dt.getTime())) return String(d);
+  return dt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/* ---------------- ฟอร์มขอยืม -------------------- */
+
+let loanCatalog = [];
+let loanCart = [];
+
+function cartProduct(id) {
+  return loanCatalog.find((p) => p.id === id);
+}
+
+async function openLoanForm() {
+  try {
+    loanCatalog = await api('/products?limit=300');
+  } catch {
+    loanCatalog = [];
+  }
+  loanCart = [];
+  openSheet(`
+    ${sheetHead('ขอยืมพัสดุ', 'รายการพัสดุแผนกปกครอง — รอการอนุมัติ')}
+    <div style="margin-top:14px">
+      <div class="field">
+        <label>ชื่อผู้ขอยืม (ยศ-ชื่อ สกุล)</label>
+        <input id="loanName" type="text" maxlength="80" placeholder="เช่น พลฯ สมชาย ใจดี" autocomplete="off" />
+      </div>
+      <div class="field--row">
+        <div class="field">
+          <label>รหัสประจำตัว (7 หลัก)</label>
+          <input id="loanCode" type="text" inputmode="numeric" maxlength="7" placeholder="เช่น 6801001" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>กำหนดส่งคืน</label>
+          <input id="loanDue" type="date" />
+        </div>
+      </div>
+      <div class="field">
+        <label>ภารกิจ / เหตุผล (ไม่บังคับ)</label>
+        <input id="loanPurpose" type="text" maxlength="120" placeholder="เช่น การฝึกทางทหาร" autocomplete="off" />
+      </div>
+
+      <div class="loan-picker">
+        <label>เลือกพัสดุที่จะยืม (เพิ่มได้หลายรายการ)</label>
+        <div class="loan-picker__row">
+          <select id="loanProduct" class="loan-picker__select">
+            <option value="">-- เลือกพัสดุ --</option>
+            ${loanCatalog.map((p) => `<option value="${p.id}">${esc(p.name)} (${esc(p.sku)})</option>`).join('')}
+          </select>
+          <input id="loanQty" type="number" inputmode="decimal" min="1" step="1" value="1" class="loan-picker__qty" />
+          <button class="btn btn--ghost" id="loanAddItem" type="button">เพิ่ม</button>
+        </div>
+        <div id="loanCart" class="loan-cart"></div>
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <label>ลายเซ็นดิจิทัล (ใช้นิ้ววาดในกรอบ หรือใช้เมาส์)</label>
+        <div class="sigpad">
+          <canvas id="loanSig" class="sigpad__canvas"></canvas>
+          <div class="sigpad__hint">✍️ วาดลายเซ็นในพื้นที่ด้านบน</div>
+        </div>
+        <button class="link" id="loanSigClear" type="button" style="margin-top:6px">ล้างลายเซ็น</button>
+      </div>
+
+      <button class="btn btn--primary btn--block" id="loanSubmit" type="button" style="margin-top:16px">ส่งคำขอยืม</button>
+    </div>
+  `);
+  initSigPad($('#loanSig'));
+  $('#loanAddItem').addEventListener('click', () => {
+    const sel = $('#loanProduct');
+    const id = Number(sel.value);
+    const qty = Number($('#loanQty').value);
+    if (!id) return toast('กรุณาเลือกพัสดุก่อน', 'error');
+    if (!Number.isFinite(qty) || qty <= 0) return toast('กรุณาระบุจำนวนที่ถูกต้อง', 'error');
+    const existing = loanCart.find((c) => c.productId === id);
+    if (existing) existing.qty += qty;
+    else loanCart.push({ productId: id, qty });
+    renderLoanCart();
+  });
+  $('#loanSigClear').addEventListener('click', () => window.__loanSig?.clear());
+  $('#loanSubmit').addEventListener('click', submitLoan);
+  renderLoanCart();
+}
+
+function renderLoanCart() {
+  const box = $('#loanCart');
+  box.innerHTML = loanCart.length
+    ? loanCart
+        .map((c, i) => {
+          const p = cartProduct(c.productId);
+          return `<div class="loan-cart__row">
+            <span>${esc(p?.name || '?')} ${p?.sku ? `<small>· ${esc(p.sku)}</small>` : ''}</span>
+            <b>× ${fmt(c.qty)} ${esc(p?.unit || '')}</b>
+            <button class="link" data-cart-remove="${i}" type="button">ลบ</button>
+          </div>`;
+        })
+        .join('')
+    : '<div class="loan-cart__empty">ยังไม่เลือกรายการพัสดุ</div>';
+  $$('#loanCart [data-cart-remove]').forEach((b) =>
+    b.addEventListener('click', () => {
+      loanCart.splice(Number(b.dataset.cartRemove), 1);
+      renderLoanCart();
+    }),
+  );
+}
+
+async function submitLoan() {
+  const name = ($('#loanName').value || '').trim();
+  const code = ($('#loanCode').value || '').trim();
+  const purpose = ($('#loanPurpose').value || '').trim();
+  const due = $('#loanDue').value || null;
+  const sig = window.__loanSig;
+  if (!name) return toast('กรุณากรอกชื่อผู้ขอยืม', 'error');
+  if (code && !/^\d{7}$/.test(code)) return toast('รหัสประจำตัวต้องเป็นตัวเลข 7 หลักพอดี', 'error');
+  if (!loanCart.length) return toast('กรุณาเลือกรายการพัสดุที่จะยืม', 'error');
+  if (!sig || !sig.hasDrawn()) return toast('กรุณาลงลายเซ็นดิจิทัลก่อนส่ง', 'error');
+  const btn = $('#loanSubmit');
+  btn.disabled = true;
+  btn.textContent = 'กำลังส่ง…';
+  try {
+    const created = await api('/loans', {
+      method: 'POST',
+      body: JSON.stringify({
+        borrowerName: name,
+        borrowerCode: code || undefined,
+        purpose: purpose || undefined,
+        dueDate: due || undefined,
+        signature: sig.dataURL(),
+        items: loanCart.map((c) => ({ productId: c.productId, qty: c.qty })),
+      }),
+    });
+    loanCart = [];
+    closeSheet();
+    toast(`ส่งคำขอยืมแล้ว (${created.loan_id})`, 'ok');
+    switchTab('loans');
+    renderLoans();
+  } catch (err) {
+    toast(err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'ส่งคำขอยืม';
+  }
+}
+
+async function doApprove(id) {
+  if (!confirm('ยืนยันอนุมัติคำขอยืมนี้หรือไม่?')) return;
+  try {
+    await api(`/loans/${id}/approve`, { method: 'POST' });
+    toast('อนุมัติคำขอยืมแล้ว ✅', 'ok');
+    renderLoans();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function doReject(id) {
+  const reason = prompt('ระบุเหตุผลที่ไม่อนุมัติ (เว้นว่างได้)', '');
+  if (reason === null) return;
+  try {
+    await api(`/loans/${id}/reject`, { method: 'POST', body: JSON.stringify({ note: reason.trim() || null }) });
+    toast('ไม่อนุมัติคำขอยืมแล้ว', 'ok');
+    renderLoans();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openReturnForm(loanId) {
+  openSheet(`
+    ${sheetHead('ส่งคืนพัสดุ', 'ยืนยันการคืนด้วยลายเซ็น')}
+    <div style="margin-top:14px">
+      <div class="field">
+        <label>หมายเหตุการส่งคืน (ไม่บังคับ)</label>
+        <input id="returnNote" type="text" maxlength="120" placeholder="เช่น สภาพครบสมบูรณ์" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>ลายเซ็นผู้ส่งคืน</label>
+        <div class="sigpad">
+          <canvas id="returnSig" class="sigpad__canvas"></canvas>
+          <div class="sigpad__hint">✍️ วาดลายเซ็นในพื้นที่ด้านบน</div>
+        </div>
+        <button class="link" id="returnSigClear" type="button" style="margin-top:6px">ล้างลายเซ็น</button>
+      </div>
+      <button class="btn btn--primary btn--block" id="returnSubmit" type="button" style="margin-top:16px">ยืนยันส่งคืน</button>
+    </div>
+  `);
+  const sig = initSigPad($('#returnSig'));
+  $('#returnSigClear').addEventListener('click', () => sig.clear());
+  $('#returnSubmit').addEventListener('click', async () => {
+    if (!sig.hasDrawn()) return toast('กรุณาลงลายเซ็นก่อนส่งคืน', 'error');
+    const btn = $('#returnSubmit');
+    btn.disabled = true;
+    btn.textContent = 'กำลังบันทึก…';
+    try {
+      await api(`/loans/${loanId}/return`, {
+        method: 'POST',
+        body: JSON.stringify({ signature: sig.dataURL(), note: ($('#returnNote').value || '').trim() || null }),
+      });
+      closeSheet();
+      toast('บันทึกการส่งคืนแล้ว 📦', 'ok');
+      renderLoans();
+    } catch (err) {
+      toast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = 'ยืนยันส่งคืน';
+    }
+  });
+}
+
+/* ------------------------------------------------------- ลายเซ็นดิจิทัล */
+
+function initSigPad(canvas) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, rect.width) * dpr;
+  canvas.height = Math.max(1, rect.height) * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#0F172A';
+  let drawing = false;
+  let hasDrawn = false;
+  const pos = (e) => {
+    const r = canvas.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    drawing = true;
+    hasDrawn = true;
+    canvas.setPointerCapture(e.pointerId);
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+  const stop = () => (drawing = false);
+  canvas.addEventListener('pointerup', stop);
+  canvas.addEventListener('pointercancel', stop);
+  const pad = {
+    hasDrawn: () => hasDrawn,
+    clear: () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      hasDrawn = false;
+    },
+    dataURL: () => canvas.toDataURL('image/png'),
+  };
+  window.__loanSig = pad;
+  return pad;
+}
+
 /* ----------------------------------------------------------- routing */
 
 function switchTab(tab) {
-  if (!['overview', 'products', 'history', 'settings'].includes(tab)) return;
+  if (!['overview', 'products', 'history', 'loans', 'settings'].includes(tab)) return;
   state.tab = tab;
   $$('.view').forEach((v) => (v.hidden = v.dataset.view !== tab));
   $$('.tab[data-tab]').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === tab));
@@ -674,10 +1008,12 @@ function switchTab(tab) {
     overview: 'ภาพรวมวันนี้',
     products: 'รายการสินค้าทั้งหมด',
     history: 'ประวัติการเคลื่อนไหว',
+    loans: 'ยืม/คืนพัสดุ',
     settings: 'ตั้งค่าระบบ',
   }[tab];
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (tab === 'history') renderHistory();
+  if (tab === 'loans') renderLoans();
 }
 
 /* ---------------------------------------------------------- listeners */
@@ -716,6 +1052,17 @@ document.addEventListener('click', (e) => {
 
   if (e.target.closest('#addProductBtn')) return openProductForm();
   if (e.target.closest('#addLocationBtn')) return openLocationForm();
+
+  if (e.target.closest('#newLoanBtn')) return openLoanForm();
+
+  const loanApprove = e.target.closest('[data-loan-approve]');
+  if (loanApprove) return doApprove(Number(loanApprove.dataset.loanApprove));
+
+  const loanReject = e.target.closest('[data-loan-reject]');
+  if (loanReject) return doReject(Number(loanReject.dataset.loanReject));
+
+  const loanReturn = e.target.closest('[data-loan-return]');
+  if (loanReturn) return openReturnForm(Number(loanReturn.dataset.loanReturn));
 
   const chip = e.target.closest('#statusChips .chip[data-status]');
   if (chip) {

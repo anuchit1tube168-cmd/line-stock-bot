@@ -199,6 +199,33 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
 .view-toggle .chip { flex: 1; justify-content: center; }
 
+/* ------------------------------------------------------------- ยืม/คืน */
+.loans-intro { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; line-height: 1.55; }
+.loan-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px; }
+.loan-card__top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.loan-card__id { font-weight: 700; font-size: 13px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
+.loan-card__who { color: var(--muted); font-size: 12px; margin-top: 3px; }
+.loan-card__time { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.loan-card__items { margin-top: 10px; display: grid; gap: 6px; }
+.loan-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; background: var(--surface-2); border-radius: 10px; padding: 7px 10px; }
+.loan-item small { color: var(--muted); }
+.loan-item b { font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.loan-card__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+.loan-picker { margin: 4px 0 6px; }
+.loan-picker > label { font-size: 12px; color: var(--muted); font-weight: 500; display: block; margin-bottom: 6px; }
+.loan-picker__row { display: grid; grid-template-columns: 1fr 60px 64px; gap: 8px; align-items: center; }
+.loan-picker__select { border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 13.5px; background: var(--surface); color: var(--body); min-width: 0; width: 100%; }
+.loan-picker__qty { border: 1px solid var(--line); border-radius: 10px; padding: 10px 6px; font-size: 15px; font-weight: 700; text-align: center; background: var(--surface); color: var(--body); width: 100%; }
+.loan-cart { margin-top: 8px; display: grid; gap: 6px; }
+.loan-cart__row { display: flex; align-items: center; gap: 8px; font-size: 13px; background: var(--surface-2); border-radius: 10px; padding: 8px 10px; }
+.loan-cart__row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loan-cart__row small { color: var(--muted); }
+.loan-cart__row b { font-variant-numeric: tabular-nums; }
+.loan-cart__empty { font-size: 12px; color: var(--muted); padding: 6px 2px; }
+.sigpad { border: 1px dashed var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+.sigpad__canvas { width: 100%; height: 130px; display: block; touch-action: none; }
+.sigpad__hint { text-align: center; font-size: 11px; color: var(--muted); padding: 4px 0 8px; background: var(--surface-2); }
+
 .badge {
   font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
   background: var(--surface-2); color: var(--body); white-space: nowrap;
@@ -272,7 +299,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   max-width: 620px; margin: 0 auto;
   height: calc(var(--tab-h) + var(--safe-b)); padding-bottom: var(--safe-b);
-  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  display: grid; grid-template-columns: repeat(6, 1fr); align-items: center;
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(16px) saturate(180%); -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-top: 1px solid var(--line);
