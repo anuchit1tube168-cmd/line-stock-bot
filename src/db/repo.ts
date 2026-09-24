@@ -671,13 +671,17 @@ export async function getLoan(db: D1Database, id: number): Promise<LoanRow> {
 
 export async function listLoans(
   db: D1Database,
-  opts: { status?: LoanStatus; limit?: number } = {},
+  opts: { status?: LoanStatus; mine?: string; limit?: number } = {},
 ): Promise<LoanRow[]> {
   const where: string[] = [];
   const binds: unknown[] = [];
   if (opts.status) {
     where.push('status = ?');
     binds.push(opts.status);
+  }
+  if (opts.mine) {
+    where.push('created_by = ?');
+    binds.push(opts.mine);
   }
   const rows = await db
     .prepare(`SELECT * FROM loans ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ?`)

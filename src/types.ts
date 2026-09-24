@@ -9,6 +9,8 @@ export interface Env {
   /** LINE Login channel id ของ LIFF — ใช้ตรวจ ID token */
   LINE_LOGIN_CHANNEL_ID: string;
   LIFF_ID: string;
+  /** LIFF app ของหน้า "ยืม/คืน" สำหรับนักเรียน (ระบบหลัก) */
+  BORROW_LIFF_ID?: string;
 
   ENVIRONMENT?: string;
   DEV_LINE_USER_ID?: string;

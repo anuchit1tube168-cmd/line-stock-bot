@@ -10,7 +10,11 @@ export const api = new Hono<Vars>();
 
 /* config เปิดสาธารณะ — หน้าเว็บต้องรู้ LIFF ID ก่อนจึงจะ init ได้ */
 api.get('/config', (c) =>
-  c.json({ liffId: c.env.LIFF_ID ?? '', dev: c.env.ENVIRONMENT === 'dev' }),
+  c.json({
+    liffId: c.env.LIFF_ID ?? '',
+    borrowLiffId: c.env.BORROW_LIFF_ID ?? '',
+    dev: c.env.ENVIRONMENT === 'dev',
+  }),
 );
 
 api.use('/*', requireAuth);
@@ -165,10 +169,15 @@ api.post('/movements', requireRole('staff', 'admin'), async (c) => {
 
 /* ------------------------------------------------------------------ loans */
 
-/** รายการขอยืมทั้งหมด (กรองตามสถานะได้) */
+/** รายการขอยืมทั้งหมด (กรองตามสถานะได้ หรือ ?mine=1 เพื่อดูเฉพาะของตัวเอง) */
 api.get('/loans', async (c) => {
   const status = c.req.query('status');
-  const loans = await repo.listLoans(c.env.DB, status ? { status: status as LoanStatus } : {});
+  const mine = c.req.query('mine');
+  const user = c.get('user');
+  const loans = await repo.listLoans(c.env.DB, {
+    ...(status ? { status: status as LoanStatus } : {}),
+    ...(mine === '1' ? { mine: user.lineUserId } : {}),
+  });
   return c.json(loans);
 });
 

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ระบบยืม-คืนพัสดุ · แผนกปกครอง วพอ.</title>
+  <meta name="theme-color" content="#1F3864" />
+  <link rel="stylesheet" href="borrow.css?v=1" />
+</head>
+<body>
+
+  <header class="bh">
+    <div class="bh__inner">
+      <div class="bh__brand">
+        <div class="bh__logo">📦</div>
+        <div class="bh__title">
+          <h1>ระบบยืม-คืนพัสดุ</h1>
+          <p>แผนกปกครอง วพอ.พอ.</p>
+        </div>
+      </div>
+      <div class="bh__right" id="headRight">
+        <span class="chip chip--muted" id="headChip">กำลังเชื่อมต่อ…</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- กำลังโหลด -->
+    <section id="viewBoot" class="view view--center">
+      <div class="spinner"></div>
+      <p class="boot__text">กำลังเชื่อมต่อ LINE…</p>
+    </section>
+
+    <!-- ยังไม่ได้ตั้งค่า LIFF -->
+    <section id="viewNoLiff" class="view view--center" hidden>
+      <div class="empty">
+        <div class="empty__icon">🔧</div>
+        <h2>ระบบยังไม่เปิดใช้งาน</h2>
+        <p>ผู้ดูแลระบบยังไม่ได้เชื่อมต่อหน้าเว็บนี้กับ LINE<br />กรุณากลับมาภายหลัง</p>
+      </div>
+    </section>
+
+    <!-- ยังไม่ล็อกอิน -->
+    <section id="viewLogin" class="view view--center" hidden>
+      <div class="login-card">
+        <div class="login-card__logo">📦</div>
+        <h2>ระบบยืม-คืนพัสดุ</h2>
+        <p class="muted">ลงชื่อเข้าด้วยบัญชี LINE<br />เพื่อขอยืม และดูสถานะคำขอของตัวเอง</p>
+        <button class="btn btn--line" onclick="handleLogin()">เข้าสู่ระบบด้วย LINE</button>
+      </div>
+    </section>
+
+    <!-- หน้าหลักหลังล็อกอิน -->
+    <section id="viewApp" hidden>
+
+      <div class="greet">
+        <div>
+          <div class="greet__hi">สวัสดี&nbsp;<b id="meName">…</b></div>
+          <div class="greet__sub">สิทธิ์: <span id="meRole">…</span></div>
+        </div>
+        <button class="btn btn--ghost btn--sm" type="button" onclick="doLogout()">ออกจากระบบ</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab tab--on" data-tab="catalog" onclick="switchTab('catalog')">📋 รายการพัสดุ</button>
+        <button class="tab" data-tab="mine" onclick="switchTab('mine')">🗂️ คำขอของฉัน</button>
+      </div>
+
+      <!-- แท็บรายการพัสดุ -->
+      <section id="tabCatalog">
+        <div class="search">
+          <input id="searchInput" type="search" placeholder="ค้นหาชื่อ / รหัส / ประเภทพัสดุ…" autocomplete="off" oninput="renderCatalog()" />
+        </div>
+        <div id="catalog" class="grid"></div>
+      </section>
+
+      <!-- แท็บคำขอของฉัน -->
+      <section id="tabMine" hidden>
+        <div id="myLoans" class="loans"></div>
+      </section>
+
+    </section>
+  </main>
+
+  <!-- แถบสินค้าที่เลือก (ล่างจอ) -->
+  <div id="cartBar" class="cartbar" hidden>
+    <div class="cartbar__inner">
+      <div class="cartbar__info">เลือกแล้ว&nbsp;<b id="cartCount">0</b>&nbsp;รายการ</div>
+      <button class="btn btn--gold" type="button" onclick="openCartSheet()">ตรวจสอบรายการ →</button>
+    </div>
+  </div>
+
+  <!-- แผ่น: รายการที่เลือก -->
+  <div id="sheetCart" class="sheet" hidden>
+    <div class="sheet__backdrop" onclick="closeSheets()"></div>
+    <div class="sheet__panel">
+      <div class="sheet__head">
+        <h3>รายการที่เลือก</h3>
+        <button class="sheet__close" type="button" onclick="closeSheets()" aria-label="ปิด">✕</button>
+      </div>
+      <div id="cartList" class="cart-list"></div>
+      <div class="sheet__foot">
+        <button class="btn btn--ghost" type="button" onclick="closeSheets()">ย้อนกลับ</button>
+        <button class="btn btn--gold" type="button" onclick="goForm()">กรอกแบบฟอร์ม →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- แผ่น: แบบฟอร์มขอยืม -->
+  <div id="sheetForm" class="sheet" hidden>
+    <div class="sheet__backdrop" onclick="closeSheets()"></div>
+    <div class="sheet__panel">
+      <div class="sheet__head">
+        <h3>ยืนยันการขอยืม</h3>
+        <button class="sheet__close" type="button" onclick="closeSheets()" aria-label="ปิด">✕</button>
+      </div>
+      <div class="sheet__body">
+        <div class="field">
+          <label>ชื่อผู้ขอยืม (ยศ-ชื่อ สกุล)</label>
+          <input id="fName" type="text" maxlength="80" placeholder="เช่น พลฯ สมชาย ใจดี" autocomplete="off" />
+        </div>
+        <div class="fieldrow">
+          <div class="field">
+            <label>รหัสประจำตัว (7 หลัก)</label>
+            <input id="fCode" type="text" inputmode="numeric" maxlength="7" placeholder="เช่น 6801001" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>กำหนดส่งคืน</label>
+            <input id="fDue" type="date" />
+          </div>
+        </div>
+        <div class="field">
+          <label>ภารกิจ / เหตุผล (ไม่บังคับ)</label>
+          <input id="fPurpose" type="text" maxlength="120" placeholder="เช่น การฝึกทางทหาร" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label>ลายเซ็นดิจิทัล (เซ็นด้วยนิ้ว หรือเมาส์)</label>
+          <div class="sigbox">
+            <canvas id="sigCanvas"></canvas>
+            <div class="sigbox__bar">
+              <span id="sigHint" class="muted">เซ็นในกรอบข้างบน</span>
+              <button class="btn btn--ghost btn--sm" type="button" onclick="clearSig()">ล้าง</button>
+            </div>
+          </div>
+        </div>
+        <div id="formSummary" class="formsum"></div>
+      </div>
+      <div class="sheet__foot">
+        <button class="btn btn--ghost" type="button" onclick="closeSheets()">ย้อนกลับ</button>
+        <button class="btn btn--gold" id="btnSubmit" type="button" onclick="submitLoan()">ส่งคำขอยืม ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ข้อความแจ้งเตือน -->
+  <div id="toasts" class="toasts"></div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="borrow.js?v=1"></script>
+</body>
+</html>
