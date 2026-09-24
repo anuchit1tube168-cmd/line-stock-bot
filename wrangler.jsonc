@@ -23,7 +23,6 @@
   "vars": {
     "ENVIRONMENT": "production",
     "LINE_LOGIN_CHANNEL_ID": "2011721807",
-    "LIFF_ID": "2011721807-0ePhNOYG",
-    "BORROW_LIFF_ID": ""
+    "LIFF_ID": "2011721807-0ePhNOYG"
   }
 }

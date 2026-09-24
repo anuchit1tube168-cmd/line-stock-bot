@@ -394,3 +394,68 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 #userList .row { gap: 10px; }
 #userList select:disabled { opacity: .5; }
+
+/* ------------------------------------------------ เลือกพัสดุแบบภาพ (ยืม/คืน) */
+
+.lg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-bottom: 8px;
+}
+.lg-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color .15s;
+}
+.lg-card--on { border-color: var(--primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent); }
+.lg-card__img {
+  aspect-ratio: 4 / 3;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.lg-card__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lg-card__img--empty img { visibility: hidden; }
+.lg-card__img--empty::after { content: '📦'; font-size: 30px; opacity: .45; }
+.lg-card__empty { font-size: 30px; opacity: .4; }
+.lg-card__body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.lg-card__name { font-weight: 600; font-size: 12.5px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lg-card__meta { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-card__act { margin-top: auto; }
+.lg-card__act .btn { padding: 8px 6px; font-size: 13px; }
+.lg-stepper { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.lg-stepper button {
+  width: 30px; height: 30px; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--surface);
+  font-size: 16px; font-weight: 700; color: var(--body); cursor: pointer;
+}
+.lg-stepper button:disabled { opacity: .4; }
+.lg-stepper b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.lg-cartbar {
+  position: sticky; bottom: 0;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  border-radius: 12px 12px 0 0;
+  padding: 10px 4px 6px;
+  margin: 4px -4px -2px;
+}
+.lg-cartbar__info { flex: 1; font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.lg-cartbar__info b { color: var(--body); font-size: 15px; }
+.lg-cartbar .btn { flex: 1; white-space: nowrap; }
+.lg-summary { display: grid; gap: 6px; margin: 6px 0 2px; }
+.lg-summary__row {
+  display: flex; justify-content: space-between; gap: 8px;
+  background: var(--surface-2); border-radius: 10px; padding: 8px 10px;
+  font-size: 13px;
+}
+.lg-summary__row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-summary__row b { font-variant-numeric: tabular-nums; }

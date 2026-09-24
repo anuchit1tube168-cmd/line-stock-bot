@@ -180,8 +180,9 @@ function applyRoleUI() {
   $('#addLocationBtn')?.classList.toggle('hidden', !isAdmin);
   $('#usersCard')?.classList.toggle('hidden', !isAdmin);
   $$('.tab[data-tab="settings"]').forEach((b) => b.classList.toggle('hidden', isStudent));
+  $$('.tab[data-tab="history"]').forEach((b) => b.classList.toggle('hidden', isStudent));
   const tabbar = $('#tabbar');
-  if (tabbar) tabbar.style.gridTemplateColumns = isStudent ? 'repeat(5, 1fr)' : '';
+  if (tabbar) tabbar.style.gridTemplateColumns = isStudent ? 'repeat(3, 1fr)' : '';
 }
 
 async function refreshAll() {
@@ -765,9 +766,11 @@ const LOAN_STATUS = {
 async function renderLoans() {
   const list = $('#loanList');
   list.innerHTML = '<div class="skeleton"></div>';
+  const isStudent = (state.me?.role ?? 'student') === 'student';
   let loans = [];
   try {
-    loans = await api('/loans');
+    // นักศึกษาเห็นเฉพาะคำขอของตัวเอง · เจ้าหน้าที่/ผู้ดูแลเห็นทุกคำขอ
+    loans = await api(isStudent ? '/loans?mine=1' : '/loans');
   } catch (err) {
     list.innerHTML = `<div class="empty">${esc(err.message)}</div>`;
     return;
@@ -777,7 +780,7 @@ async function renderLoans() {
   const history = loans.filter((l) => l.status === 'returned' || l.status === 'rejected');
   list.innerHTML = loans.length
     ? loanGroup('⏳ รออนุมัติ', pending) + loanGroup('📦 กำลังยืม', active) + loanGroup('🗂️ ประวัติ', history)
-    : '<div class="empty">ยังไม่มีคำขอยืม — กดปุ่ม "ขอยืมใหม่" ด้านบนเพื่อเริ่มต้น</div>';
+    : '<div class="empty">ยังไม่มีคำขอยืม — กดปุ่ม "ขอยืมพัสดุ" ด้านบนเพื่อเริ่มต้น</div>';
 }
 
 function loanGroup(title, loans) {
@@ -852,8 +855,116 @@ async function openLoanForm() {
     loanCatalog = [];
   }
   loanCart = [];
+  renderLoanPicker();
+}
+
+/** เฟส 1 — เลือกพัสดุจากแคตตาล็อกภาพ (เลือกได้หลายรายการ) */
+function renderLoanPicker() {
   openSheet(`
-    ${sheetHead('ขอยืมพัสดุ', 'รายการพัสดุแผนกปกครอง — รอการอนุมัติ')}
+    ${sheetHead('เลือกพัสดุที่จะยืม', 'รายการพัสดุแผนกปกครอง · เลือกได้หลายรายการ')}
+    <div class="searchbar" style="margin:6px 0 10px">
+      <svg viewBox="0 0 24 24" class="searchbar__icon" width="18" height="18"><path d="M21 21l-4.3-4.3M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0Z"/></svg>
+      <input id="loanSearch" type="search" placeholder="ค้นหาชื่อ / รหัส / ประเภทพัสดุ…" autocomplete="off" />
+    </div>
+    <div id="loanGrid" class="lg-grid"></div>
+    <div class="lg-cartbar" id="lgCartbar">
+      <div class="lg-cartbar__info">เลือกแล้ว <b id="lgCount">0</b> รายการ</div>
+      <button class="btn btn--primary" id="lgNext" type="button" disabled>ถัดไป: กรอกข้อมูล →</button>
+    </div>
+  `);
+  $('#loanSearch').addEventListener('input', renderLoanGrid);
+  $('#loanGrid').addEventListener('click', (e) => {
+    const plus = e.target.closest('[data-plus]');
+    const minus = e.target.closest('[data-minus]');
+    if (plus) changeLoanQty(Number(plus.dataset.plus), 1);
+    else if (minus) changeLoanQty(Number(minus.dataset.minus), -1);
+  });
+  $('#lgNext').addEventListener('click', renderLoanForm);
+  renderLoanGrid();
+  updateLgBar();
+}
+
+function renderLoanGrid() {
+  const q = ($('#loanSearch').value || '').trim().toLowerCase();
+  const list = loanCatalog.filter(
+    (p) =>
+      !q ||
+      String(p.name || '').toLowerCase().includes(q) ||
+      String(p.sku || '').toLowerCase().includes(q) ||
+      String(p.category || '').toLowerCase().includes(q),
+  );
+  $('#loanGrid').innerHTML = list.length
+    ? list.map(lgCard).join('')
+    : '<div class="empty" style="grid-column:1/-1">ไม่พบพัสดุที่ค้นหา</div>';
+}
+
+function lgCard(p) {
+  const qty = Number(p.total_qty) || 0;
+  const min = Number(p.min_qty) || 0;
+  const inCart = loanCart.find((c) => c.productId === p.id)?.qty || 0;
+  const cls = stockClass(qty, min);
+  const img = p.image
+    ? `<img src="${IMAGE_BASE + encodeURIComponent(p.image)}" alt="${esc(p.name)}" loading="lazy" onerror="this.closest('.lg-card__img').classList.add('lg-card__img--empty')">`
+    : `<div class="lg-card__empty">📦</div>`;
+  return `<div class="lg-card ${inCart ? 'lg-card--on' : ''}">
+    <div class="lg-card__img">${img}</div>
+    <div class="lg-card__body">
+      <div class="lg-card__name">${esc(p.name)}</div>
+      <div class="lg-card__meta">${esc(p.sku || '-')} · <span class="qty-${cls}">คงเหลือ ${fmt(qty)} ${esc(p.unit || 'ชิ้น')}</span></div>
+      <div class="lg-card__act">
+        ${
+          qty <= 0
+            ? '<button class="btn btn--ghost btn--block" disabled>หมดชั่วคราว</button>'
+            : inCart
+              ? `<div class="lg-stepper">
+                  <button type="button" data-minus="${p.id}" aria-label="ลด">−</button>
+                  <b>${inCart}</b>
+                  <button type="button" data-plus="${p.id}" ${inCart >= qty ? 'disabled' : ''} aria-label="เพิ่ม">+</button>
+                </div>`
+              : `<button class="btn btn--primary btn--block" data-plus="${p.id}" type="button">ขอยืม +</button>`
+        }
+      </div>
+    </div>
+  </div>`;
+}
+
+function changeLoanQty(productId, delta) {
+  const p = loanCatalog.find((x) => x.id === productId);
+  if (!p) return;
+  const maxQty = Math.max(Number(p.total_qty) || 0, 1);
+  const row = loanCart.find((c) => c.productId === productId);
+  const next = (row?.qty || 0) + delta;
+  if (next <= 0) {
+    loanCart = loanCart.filter((c) => c.productId !== productId);
+  } else {
+    if (next > maxQty) return toast(`ยืมได้ไม่เกินคงเหลือ (${fmt(maxQty)})`, 'error');
+    if (row) row.qty = next;
+    else loanCart.push({ productId, qty: next });
+  }
+  renderLoanGrid();
+  updateLgBar();
+}
+
+function updateLgBar() {
+  const n = loanCart.length;
+  $('#lgCount').textContent = n;
+  $('#lgNext').disabled = n === 0;
+}
+
+/** เฟส 2 — ข้อมูลผู้ยืม + ลายเซ็น */
+function renderLoanForm() {
+  if (!loanCart.length) return toast('ยังไม่ได้เลือกพัสดุ', 'error');
+  const total = loanCart.reduce((s, c) => s + c.qty, 0);
+  openSheet(`
+    ${sheetHead('รายละเอียดการขอยืม', `${loanCart.length} รายการ · ${fmt(total)} ชิ้น`)}
+    <div class="lg-summary">
+      ${loanCart
+        .map((c) => {
+          const p = cartProduct(c.productId);
+          return `<div class="lg-summary__row"><span>${esc(p?.name || '?')}</span><b>× ${fmt(c.qty)}</b></div>`;
+        })
+        .join('')}
+    </div>
     <div style="margin-top:14px">
       <div class="field">
         <label>ชื่อผู้ขอยืม (ยศ-ชื่อ สกุล)</label>
@@ -873,21 +984,7 @@ async function openLoanForm() {
         <label>ภารกิจ / เหตุผล (ไม่บังคับ)</label>
         <input id="loanPurpose" type="text" maxlength="120" placeholder="เช่น การฝึกทางทหาร" autocomplete="off" />
       </div>
-
-      <div class="loan-picker">
-        <label>เลือกพัสดุที่จะยืม (เพิ่มได้หลายรายการ)</label>
-        <div class="loan-picker__row">
-          <select id="loanProduct" class="loan-picker__select">
-            <option value="">-- เลือกพัสดุ --</option>
-            ${loanCatalog.map((p) => `<option value="${p.id}">${esc(p.name)} (${esc(p.sku)})</option>`).join('')}
-          </select>
-          <input id="loanQty" type="number" inputmode="decimal" min="1" step="1" value="1" class="loan-picker__qty" />
-          <button class="btn btn--ghost" id="loanAddItem" type="button">เพิ่ม</button>
-        </div>
-        <div id="loanCart" class="loan-cart"></div>
-      </div>
-
-      <div class="field" style="margin-top:12px">
+      <div class="field">
         <label>ลายเซ็นดิจิทัล (ใช้นิ้ววาดในกรอบ หรือใช้เมาส์)</label>
         <div class="sigpad">
           <canvas id="loanSig" class="sigpad__canvas"></canvas>
@@ -895,47 +992,19 @@ async function openLoanForm() {
         </div>
         <button class="link" id="loanSigClear" type="button" style="margin-top:6px">ล้างลายเซ็น</button>
       </div>
-
-      <button class="btn btn--primary btn--block" id="loanSubmit" type="button" style="margin-top:16px">ส่งคำขอยืม</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn--ghost" id="loanBack" type="button">← เลือกใหม่</button>
+      <button class="btn btn--primary" id="loanSubmit" type="button" style="flex:1">ส่งคำขอยืม</button>
     </div>
   `);
   initSigPad($('#loanSig'));
-  $('#loanAddItem').addEventListener('click', () => {
-    const sel = $('#loanProduct');
-    const id = Number(sel.value);
-    const qty = Number($('#loanQty').value);
-    if (!id) return toast('กรุณาเลือกพัสดุก่อน', 'error');
-    if (!Number.isFinite(qty) || qty <= 0) return toast('กรุณาระบุจำนวนที่ถูกต้อง', 'error');
-    const existing = loanCart.find((c) => c.productId === id);
-    if (existing) existing.qty += qty;
-    else loanCart.push({ productId: id, qty });
-    renderLoanCart();
-  });
+  // เติมชื่อจาก LINE ให้อัตโนมัติ (ผู้ใช้แก้ได้)
+  const myName = state.me?.name;
+  if (myName && !$('#loanName').value) $('#loanName').value = myName;
   $('#loanSigClear').addEventListener('click', () => window.__loanSig?.clear());
+  $('#loanBack').addEventListener('click', renderLoanPicker);
   $('#loanSubmit').addEventListener('click', submitLoan);
-  renderLoanCart();
-}
-
-function renderLoanCart() {
-  const box = $('#loanCart');
-  box.innerHTML = loanCart.length
-    ? loanCart
-        .map((c, i) => {
-          const p = cartProduct(c.productId);
-          return `<div class="loan-cart__row">
-            <span>${esc(p?.name || '?')} ${p?.sku ? `<small>· ${esc(p.sku)}</small>` : ''}</span>
-            <b>× ${fmt(c.qty)} ${esc(p?.unit || '')}</b>
-            <button class="link" data-cart-remove="${i}" type="button">ลบ</button>
-          </div>`;
-        })
-        .join('')
-    : '<div class="loan-cart__empty">ยังไม่เลือกรายการพัสดุ</div>';
-  $$('#loanCart [data-cart-remove]').forEach((b) =>
-    b.addEventListener('click', () => {
-      loanCart.splice(Number(b.dataset.cartRemove), 1);
-      renderLoanCart();
-    }),
-  );
 }
 
 async function submitLoan() {
@@ -945,7 +1014,7 @@ async function submitLoan() {
   const due = $('#loanDue').value || null;
   const sig = window.__loanSig;
   if (!name) return toast('กรุณากรอกชื่อผู้ขอยืม', 'error');
-  if (code && !/^\d{7}$/.test(code)) return toast('รหัสประจำตัวต้องเป็นตัวเลข 7 หลักพอดี', 'error');
+  if (!/^\d{7}$/.test(code)) return toast('รหัสประจำตัวต้องเป็นตัวเลข 7 หลักพอดี', 'error');
   if (!loanCart.length) return toast('กรุณาเลือกรายการพัสดุที่จะยืม', 'error');
   if (!sig || !sig.hasDrawn()) return toast('กรุณาลงลายเซ็นดิจิทัลก่อนส่ง', 'error');
   const btn = $('#loanSubmit');

@@ -10,11 +10,7 @@ export const api = new Hono<Vars>();
 
 /* config เปิดสาธารณะ — หน้าเว็บต้องรู้ LIFF ID ก่อนจึงจะ init ได้ */
 api.get('/config', (c) =>
-  c.json({
-    liffId: c.env.LIFF_ID ?? '',
-    borrowLiffId: c.env.BORROW_LIFF_ID ?? '',
-    dev: c.env.ENVIRONMENT === 'dev',
-  }),
+  c.json({ liffId: c.env.LIFF_ID ?? '', dev: c.env.ENVIRONMENT === 'dev' }),
 );
 
 api.use('/*', requireAuth);

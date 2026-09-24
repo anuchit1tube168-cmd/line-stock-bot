@@ -61,13 +61,6 @@ app.onError((err, c) => {
   return c.json({ error: 'เกิดข้อผิดพลาดภายในระบบ' }, 500);
 });
 
-/* หน้า "ยืม/คืนพัสดุ" สำหรับนักเรียน — LIFF อีกตัว จุดเข้า /borrow */
-app.get('/borrow', (c) => {
-  const url = new URL(c.req.url);
-  url.pathname = '/borrow.html';
-  return c.env.ASSETS.fetch(new Request(url.toString(), c.req.raw));
-});
-
 /* หน้า LIFF (ไฟล์ static ถูกเสิร์ฟโดย assets binding อยู่แล้ว) */
 app.notFound(async (c) => {
   if (c.req.path.startsWith('/api') || c.req.path.startsWith('/line')) {
