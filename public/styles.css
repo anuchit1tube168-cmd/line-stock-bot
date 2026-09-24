@@ -177,6 +177,28 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .item--plain { border: 0; background: none; padding: 10px 0; border-bottom: 1px solid var(--line-soft); border-radius: 0; }
 .item--plain:last-child { border-bottom: 0; }
 
+/* ------------------------------------------ product cards (มุมมองภาพ) */
+.pcard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pcard {
+  display: flex; flex-direction: column; width: 100%; text-align: left; padding: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: calc(var(--r-md) * 1.1);
+  overflow: hidden; cursor: pointer; transition: transform .12s ease, border-color .12s ease;
+}
+.pcard:active { transform: scale(.985); border-color: var(--muted); }
+.pcard__img { aspect-ratio: 1 / 1; background: var(--surface-2); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.pcard__img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcard__img--empty { position: relative; }
+.pcard__img--empty img { visibility: hidden; }
+.pcard__img--empty::after { content: '📦'; font-size: 34px; opacity: .45; }
+.pcard__empty { font-size: 34px; opacity: .4; }
+.pcard__body { padding: 10px 12px 12px; }
+.pcard__name { font-weight: 600; font-size: 13px; line-height: 1.3; letter-spacing: -0.01em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard__meta { font-size: 11px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard__foot { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 7px; }
+.pcard__qty { font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.view-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+.view-toggle .chip { flex: 1; justify-content: center; }
+
 .badge {
   font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 99px;
   background: var(--surface-2); color: var(--body); white-space: nowrap;

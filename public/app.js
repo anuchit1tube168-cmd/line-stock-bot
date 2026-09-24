@@ -15,7 +15,11 @@ const state = {
   filters: { q: '', status: 'all', locationId: '' },
   historyType: 'all',
   summary: null,
+  productView: 'card',
 };
+
+/* ที่เก็บรูปภาพพัสดุของระบบเดิม (rtafnc-supplies บน Cloudflare) */
+const IMAGE_BASE = 'https://rtafnc-supplies.anuchit1tube168.workers.dev/images/';
 
 const ACTIONS = {
   issue:    { label: 'เบิกออก', icon: '📤', cls: 'issue',    verb: 'เบิก' },
@@ -225,6 +229,31 @@ function productRow(p, plain = false) {
   </button>`;
 }
 
+function productThumb(p) {
+  const src = p.image ? IMAGE_BASE + encodeURIComponent(p.image) : '';
+  return `<div class="pcard__img">${
+    src
+      ? `<img src="${src}" alt="${esc(p.name)}" loading="lazy" onerror="this.closest('.pcard__img').classList.add('pcard__img--empty')">`
+      : `<div class="pcard__empty">📦</div>`
+  }</div>`;
+}
+
+function productCard(p) {
+  const cls = stockClass(Number(p.total_qty), Number(p.min_qty));
+  const badge = cls === 'out' ? 'หมด' : cls === 'low' ? 'ใกล้หมด' : '';
+  return `<button class="pcard" data-product="${p.id}">
+    ${productThumb(p)}
+    <div class="pcard__body">
+      <div class="pcard__name">${esc(p.name)}</div>
+      <div class="pcard__meta">${esc(p.sku)}${p.category ? ' · ' + esc(p.category) : ''}</div>
+      <div class="pcard__foot">
+        <span class="pcard__qty qty-${cls}">${fmt(p.total_qty)} ${esc(p.unit)}</span>
+        ${badge ? `<span class="badge badge--${cls}">${badge}</span>` : ''}
+      </div>
+    </div>
+  </button>`;
+}
+
 function movementRow(m) {
   const meta = MOVE_META[m.type] ?? { label: m.type, icon: '•', cls: '' };
   const positive = Number(m.delta) > 0;
@@ -252,8 +281,10 @@ function renderLocationFilter() {
 }
 
 function renderProducts(products) {
-  $('#productList').innerHTML = products.length
-    ? products.map((p) => productRow(p)).join('')
+  const list = $('#productList');
+  list.className = state.productView === 'card' ? 'pcard-grid' : 'list list--cards';
+  list.innerHTML = products.length
+    ? products.map((p) => (state.productView === 'card' ? productCard(p) : productRow(p))).join('')
     : `<div class="empty">ไม่พบสินค้าที่ตรงกับเงื่อนไข</div>`;
 }
 
@@ -317,6 +348,7 @@ async function openProduct(id) {
     const cls = stockClass(total, product.min_qty);
     openSheet(`
       ${sheetHead(product.name, `${product.sku}${product.barcode ? ' · ' + product.barcode : ''}`)}
+      ${product.image ? `<img src="${IMAGE_BASE + encodeURIComponent(product.image)}" alt="${esc(product.name)}" loading="lazy" style="width:100%;border-radius:12px;margin-top:10px;max-height:210px;object-fit:cover" onerror="this.remove()">` : ''}
       <div style="display:flex;align-items:baseline;gap:8px;margin-top:10px">
         <div class="confirm__big qty-${cls}" style="font-size:34px">${fmt(total)}</div>
         <div style="color:var(--muted);font-size:13px">${esc(product.unit)} รวมทุกคลัง</div>
@@ -690,6 +722,13 @@ document.addEventListener('click', (e) => {
     state.filters.status = chip.dataset.status;
     $$('#statusChips .chip').forEach((c) => c.classList.toggle('is-active', c === chip));
     return loadProducts().then(renderProducts);
+  }
+
+  const viewBtn = e.target.closest('#viewToggle .chip[data-view]');
+  if (viewBtn) {
+    state.productView = viewBtn.dataset.view;
+    $$('#viewToggle .chip').forEach((c) => c.classList.toggle('is-active', c === viewBtn));
+    return renderProducts(state.products);
   }
 
   const hChip = e.target.closest('#historyChips .chip');
